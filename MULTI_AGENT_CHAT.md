@@ -1,6 +1,6 @@
 # Multi-Agent Chat System Documentation
 
-This project implements a multi-agent chat system that enables different AI models to interact with each other in various formats, including discussions, debates, and role-playing scenarios.
+This project implements a multi-agent chat system that enables different AI models to interact with each other in various formats, including discussions, debates, and role-playing scenarios. The system supports both local models via Ollama and cloud models via Puter API.
 
 ## Features
 
@@ -8,23 +8,57 @@ This project implements a multi-agent chat system that enables different AI mode
 - **Model Debate**: Structured debates between two models on specific topics
 - **Role-Playing Scenarios**: Models assume different personas within a scenario
 - **Interactive Chat**: Real-time user control of multi-model conversations
+- **Dual API Support**: Compatible with both Ollama (local) and Puter API (cloud)
 
 ## Prerequisites
 
+### For Ollama Implementation:
 Make sure you have the required models available in your Ollama installation:
 
 ```bash
 ollama list
 ```
 
+### For Puter API Implementation:
+- A Puter account (sign up at https://puter.com)
+- Internet connection to access the Puter API
+- The HTML interface works best in modern web browsers
+
 ## Usage
 
 ### Running Examples
 
-To run all example demonstrations:
+To run Ollama-based examples:
 
 ```bash
 node multi-agent-chat.js
+```
+
+To run Puter API-based examples:
+
+```bash
+node puter-multi-agent-chat.js
+```
+
+### Browser Implementation (Recommended for Puter API)
+
+For the full Puter API experience, open `puter-chat-interface.html` in your web browser:
+1. Sign in to your Puter account when prompted
+2. Start chatting with AI models
+3. Use the same commands as in the Node.js version
+
+### Interactive Modes
+
+To start the interactive multi-agent chat with Ollama:
+
+```bash
+node multi-agent-chat.js --interactive
+```
+
+To start the interactive multi-agent chat with Puter API:
+
+```bash
+node puter-multi-agent-chat.js --interactive
 ```
 
 This will run:
@@ -139,9 +173,16 @@ await rolePlayScenario(
 
 ## Requirements
 
+### For Ollama Implementation:
 - Node.js (ES Modules support required)
 - Ollama running locally
 - Required models installed in Ollama
+
+### For Puter API Implementation:
+- Node.js (ES Modules support required)
+- Internet connection to access the Puter API
+- A Puter account with sufficient credits for API usage
+- For full functionality, use the HTML interface in a browser environment
 
 ## Model Management
 
@@ -169,3 +210,25 @@ When using the logging feature (`--log` flag), conversation logs are saved in JS
 2. **Simulated Debates**: Watch models argue for different positions on controversial topics
 3. **Collaborative Problem Solving**: Models work together to solve complex problems
 4. **Role-playing Scenarios**: Models take on different personas to explore scenarios
+
+## API Differences: Ollama vs Puter
+
+### Model Selection
+- **Ollama**: Uses locally installed models (e.g., `gpt-oss:120b-cloud`)
+- **Puter**: Uses cloud-based models (e.g., `gpt-4`, `claude`)
+
+### Authentication
+- **Ollama**: No authentication required
+- **Puter**: Requires user sign-in to Puter account
+
+### Deployment
+- **Ollama**: Runs locally on your machine
+- **Puter**: Accesses cloud-based AI services
+
+### Cost Model
+- **Ollama**: Free (uses your local resources)
+- **Puter**: Pay-per-use (billed to your Puter account)
+
+### Performance
+- **Ollama**: Performance depends on your local hardware
+- **Puter**: Consistent performance based on Puter's infrastructure

@@ -1,154 +1,126 @@
-# Ollama JavaScript Client
+# Ollama and Puter JavaScript Client
 
-This is a JavaScript client project that provides examples and interfaces for interacting with local language models using the Ollama library. The project demonstrates how to use the official Ollama JavaScript client to perform chat completions and streaming responses.
+This project demonstrates how to interact with both Ollama and Puter AI APIs using JavaScript. The project includes examples for chat completions, streaming responses, and multi-agent conversations.
 
 ## Project Overview
 
-**Main Technologies:**
-- Node.js (ES Modules)
-- Ollama JavaScript client library (`ollama` package)
-- JavaScript (ES2022+)
+This project contains examples for:
 
-**Architecture:**
-- Main entry point: `interface.js` - Demonstrates basic chat completion
-- Streaming functionality: `streaming.js` - Shows how to handle streaming responses
-- Multi-agent functionality: `multi-agent-chat.js` - Demonstrates interactions between different AI models
+- **Ollama API**: Using local language models
+- **Puter API**: Using cloud-based AI models with the Puter platform
 
 ## Key Files
 
-- `interface.js` - Basic chat completion example with a single response
-- `streaming.js` - Streaming chat completion example
-- `chat-interface.js` - Interactive chat interface
-- `multi-agent-chat.js` - Multi-agent chat with different models
-- `package.json` - Project dependencies and metadata
-- `node_modules/` - NPM dependencies including the ollama client
-- `chat-logs/` - Directory for storing conversation logs
+- `interface.js` - Basic Ollama chat completion example
+- `streaming.js` - Ollama streaming chat completion example
+- `chat-interface.js` - Interactive Ollama chat interface
+- `multi-agent-chat.js` - Multi-agent conversations using Ollama
+- `puter-chat-interface.js` - Interactive chat interface using Puter API (Node.js)
+- `puter-chat-interface.html` - Interactive chat interface using Puter API (Browser)
+- `puter-multi-agent-chat.js` - Multi-agent conversations using Puter API
 
 ## Setup and Installation
 
 1. Ensure you have Node.js installed (version compatible with ES modules)
-2. Make sure Ollama is installed and running on your system
-3. Install project dependencies:
+2. For Ollama examples:
+   - Make sure Ollama is installed and running on your system
+3. For Puter examples:
+   - Access to the Puter API requires signing into a Puter account (https://puter.com)
+4. Install project dependencies:
 
 ```bash
 npm install
 ```
 
-## Building and Running
+## Running Examples
 
-### Running Examples
+### Ollama Examples
 
-To run the basic chat example:
+To run the basic Ollama chat example:
 ```bash
 node interface.js
 ```
 
-To run the streaming chat example:
+To run the Ollama streaming chat example:
 ```bash
 node streaming.js
 ```
 
-To run the interactive chat interface:
+To run the interactive Ollama chat interface:
 ```bash
 node chat-interface.js
 ```
 
-To run the multi-agent chat examples:
+To run Ollama multi-agent examples:
 ```bash
 node multi-agent-chat.js
 ```
 
-For multi-agent chat with logging:
-```bash
-node multi-agent-chat.js --log
-```
-
-For interactive multi-agent chat:
+For interactive multi-agent mode:
 ```bash
 node multi-agent-chat.js --interactive
 ```
 
-For interactive multi-agent chat with logging:
+### Puter Examples
+
+To run the Puter chat interface (Node.js version - note: this is a simulation, see below):
 ```bash
-node multi-agent-chat.js --interactive --log
+node puter-chat-interface.js
 ```
 
-### Available Scripts
+To run the Puter multi-agent examples:
+```bash
+node puter-multi-agent-chat.js
+```
 
-- `npm run basic` - Run the basic chat example
-- `npm run stream` - Run the streaming chat example
-- `npm run chat` - Run the interactive chat interface
-- `npm run multi-agent` - Run the multi-agent chat example
+For interactive Puter multi-agent mode:
+```bash
+node puter-multi-agent-chat.js --interactive
+```
 
-### Prerequisites
+### Browser-based Puter Interface
 
-- Ollama must be installed and running locally
-- A compatible model must be available
+The most effective way to use the Puter API is through the browser-based interface:
 
-## Multi-Agent Chat Examples
+1. Open `puter-chat-interface.html` in a web browser
+2. Sign in to your Puter account when prompted
+3. Start chatting with AI models
 
-The `multi-agent-chat.js` file includes three different examples of models chatting with each other:
+## Important Notes about Puter API Integration
 
-### 1. Multi-Agent Discussion
-Multiple models take turns discussing a topic, each bringing their own perspective to the conversation.
+The Puter API is designed to work primarily in browser environments. The JavaScript library is loaded via:
 
-### 2. Model Debate
-Two models engage in a structured debate on a controversial topic, with each model taking opposing viewpoints.
+```html
+<script src="https://js.puter.com/v2/"></script>
+```
 
-### 3. Role-Playing Scenario
-Models take on different roles in a scenario and respond accordingly to the situation.
+This provides access to:
+- AI chat capabilities with various models (GPT, Claude, Gemini, etc.)
+- Cloud storage functionality
+- Authentication and user management
+- Serverless workers and other Puter services
 
-## Available Models
+The Node.js files (`puter-chat-interface.js` and `puter-multi-agent-chat.js`) are included to demonstrate how the code structure would change when moving from Ollama to Puter APIs, but they will only work in an environment where the Puter API is available (i.e., in the browser with the script loaded).
 
-Based on your Ollama installation, the following models are available:
+For a fully functional Puter AI integration, use the HTML version (`puter-chat-interface.html`) which includes the Puter.js library and handles authentication properly.
 
-- `gpt-oss:120b-cloud`
-- `qwen3-coder:480b-cloud`
-- `glm-4.6:cloud`
-- `kimi-k2:1t-cloud`
-- `deepseek-v3.1:671b-cloud`
-- `nomic-embed-text:latest`
+## Prerequisites
 
-## How It Works
-
-The multi-agent chat works by:
-
-1. Creating a conversation history array to maintain context
-2. Cycling through different models for each turn in the conversation
-3. Using system prompts to help models understand they're participating with other models
-4. Handling errors gracefully when a model is not available
-5. Displaying responses in an easy-to-read format
-
-## Conversation Logs
-
-When using the logging feature (`--log` flag), conversation logs are saved in JSON format:
-- Saves to: `chat-logs/` directory (created automatically)
-- Filename pattern: `{type}_{timestamp}.json`
-- Contains the full conversation history
-- Includes metadata like total message count and models used
-- Timestamp of when the conversation occurred
+- For Ollama: Ollama must be installed and running locally with compatible models
+- For Puter: A Puter account is required (free tier available at https://puter.com)
 
 ## Development Conventions
 
 - Uses ES modules (`"type": "module"` in package.json)
 - Async/await for handling promises
 - Modern JavaScript syntax with top-level await
-- Direct import from the 'ollama' package
+- Direct API calls to either Ollama or Puter based on the specific example
 
 ## Project Purpose
 
-This project serves as a minimal example of how to integrate with Ollama's API using JavaScript. It demonstrates:
+This project serves as an example of how to integrate with different AI APIs using JavaScript. It demonstrates:
 - Basic chat completion requests
 - Streaming responses
-- Interactive chat interfaces
-- Multi-agent interactions between different models
-- Error handling (implicitly through the Ollama client)
-- Usage of different models
-
-## Testing
-
-Currently, no dedicated tests are specified in the package.json. The scripts section shows a placeholder test command.
-
-## Dependencies
-
-- `ollama`: Official JavaScript client for Ollama (version ^0.5.11)
+- Multi-agent conversations
+- Error handling
+- Usage of different models from different providers

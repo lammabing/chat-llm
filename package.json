@@ -1,6 +1,11 @@
 {
   "dependencies": {
-    "ollama": "^0.5.11"
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "ollama": "^0.5.11",
+    "openai": "^4.0.0",
+    "ws": "^8.18.3"
   },
   "name": "ollama",
   "version": "1.0.0",
@@ -10,11 +15,14 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "multi-agent": "node multi-agent-chat.js",
     "chat": "node chat-interface.js",
+    "hybrid-chat": "node hybrid-chat-interface.js",
     "basic": "node interface.js",
-    "stream": "node streaming.js"
+    "stream": "node streaming.js",
+    "puter-chat": "node puter-chat-interface.js",
+    "puter-multi": "node puter-multi-agent-chat.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "JavaScript client for Ollama and Puter AI APIs"
 }

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Chat Interface</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Ollama Chat Interface</h1>
+            <div id="provider-info">
+                <span>Provider: <span id="current-provider">ollama</span></span>
+                | 
+                <span>Model: <span id="current-model">gpt-oss:120b-cloud</span></span>
+            </div>
+        </header>
+        
+        <div id="controls">
+            <button id="clear-history-btn">Clear History</button>
+            <div class="dropdown-container">
+                <button id="provider-select-btn">Provider: ollama</button>
+                <div id="provider-dropdown" class="dropdown-content">
+                    <a href="#" data-provider="ollama">Ollama</a>
+                    <a href="#" data-provider="openai">OpenAI</a>
+                </div>
+            </div>
+            <div class="dropdown-container">
+                <button id="model-select-btn">Select Model</button>
+                <div id="model-dropdown" class="dropdown-content">
+                    <!-- Models will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <div id="chat-container">
+            <div id="messages"></div>
+        </div>
+        
+        <div id="input-area">
+            <textarea 
+                id="message-input" 
+                placeholder="Type your message here..." 
+                rows="1"
+            ></textarea>
+            <button id="send-btn">Send</button>
+        </div>
+        
+        <div id="status-bar">
+            <span id="connection-status">Connecting...</span>
+            <span id="typing-indicator" style="display: none;">Assistant is typing...</span>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
