@@ -7,6 +7,8 @@ import ollama from 'ollama';
 import { OpenAI } from 'openai';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { createMCPClientManager } from './lib/mcp/client-manager.js';
+import { createLLMIntegration } from './lib/mcp/llm-integration.js';
 dotenv.config();
 
 // Define __dirname for ES modules
@@ -26,6 +28,10 @@ const PORT = process.env.PORT || 3075;
 // Create WebSocket server
 const wss = new WebSocketServer({ server });
 
+// Initialize MCP client manager
+let mcpClientManager = null;
+let llmIntegration = null;
+
 // Configuration object to store current settings
 const config = {
   provider: 'ollama', // 'ollama' or 'openai'
@@ -35,7 +41,9 @@ const config = {
   openaiBaseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1', // Allows custom OpenAI-compatible endpoints
   azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION, // For Azure OpenAI compatibility
   searchProvider: process.env.SEARCH_PROVIDER || 'duckduckgo', // 'duckduckgo', 'tavily', 'serpapi', etc.
-  searchApiKey: process.env.SEARCH_API_KEY // For APIs that require an API key
+  searchApiKey: process.env.SEARCH_API_KEY, // For APIs that require an API key
+  enableMCP: process.env.ENABLE_MCP === 'true' || true, // Enable MCP integration by default
+  mcpConfigPath: process.env.MCP_CONFIG_PATH || './mcp-config.json' // Path to MCP config file
 };
 
 let openaiClient = null;
@@ -66,21 +74,76 @@ if (config.openaiApiKey) {
   }
 }
 
+// Initialize MCP client manager if enabled
+if (config.enableMCP) {
+  try {
+    mcpClientManager = createMCPClientManager(config.mcpConfigPath);
+    // Note: We'll initialize MCP after the server starts to avoid blocking startup
+    console.log('ℹ️  MCP client manager created, initializing asynchronously...');
+  } catch (error) {
+    console.error('❌ Failed to create MCP client manager:', error.message);
+    console.log('MCP functionality will be disabled');
+    config.enableMCP = false;
+  }
+} else {
+  console.log('ℹ️  MCP integration is disabled');
+}
+
+// Initialize MCP client manager asynchronously after server starts
+async function initializeMCP() {
+  if (!config.enableMCP || !mcpClientManager) {
+    return;
+  }
+
+  try {
+    await mcpClientManager.initialize();
+
+    // Create LLM integration for tool calling
+    llmIntegration = createLLMIntegration(mcpClientManager);
+
+    console.log('✅ MCP client manager initialized');
+    console.log(`📋 Configured servers: ${mcpClientManager.getConfiguredServers().join(', ')}`);
+    console.log(`🔌 Connected servers: ${mcpClientManager.getConnectedServers().join(', ')}`);
+    console.log(`🛠️  Available tools: ${mcpClientManager.listTools().length}`);
+  } catch (error) {
+    console.error('❌ Failed to initialize MCP client manager:', error.message);
+    console.log('MCP functionality will be disabled');
+    config.enableMCP = false;
+  }
+}
+
 // WebSocket connection handling
 wss.on('connection', (ws) => {
   console.log('New client connected');
-  
+
   // Send welcome message to the new client
   ws.send(JSON.stringify({
     type: 'connected',
     message: 'Connected to chat server'
   }));
 
+  // Send MCP status if MCP is enabled
+  if (config.enableMCP) {
+    ws.send(JSON.stringify({
+      type: 'mcp_status',
+      configuredServers: mcpClientManager.getConfiguredServers(),
+      connectedServers: mcpClientManager.getConnectedServers(),
+      availableTools: mcpClientManager.listTools().length,
+      enabled: true
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: 'mcp_status',
+      enabled: false,
+      message: 'MCP integration is disabled'
+    }));
+  }
+
   // Handle incoming messages from client
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
-      
+
       switch (message.type) {
         case 'chat':
           await handleChatMessage(ws, message);
@@ -99,6 +162,25 @@ wss.on('connection', (ws) => {
           break;
         case 'clear_history':
           handleClearHistory(ws, message);
+          break;
+        // MCP-related message handlers
+        case 'mcp_connect':
+          await handleMCPConnect(ws, message);
+          break;
+        case 'mcp_disconnect':
+          await handleMCPDisconnect(ws, message);
+          break;
+        case 'mcp_list_servers':
+          await handleMCPListServers(ws, message);
+          break;
+        case 'mcp_list_tools':
+          await handleMCPListTools(ws, message);
+          break;
+        case 'mcp_execute_tool':
+          await handleMCPExecuteTool(ws, message);
+          break;
+        case 'mcp_get_status':
+          await handleMCPGetStatus(ws, message);
           break;
         default:
           ws.send(JSON.stringify({
@@ -124,10 +206,10 @@ wss.on('connection', (ws) => {
 // Function to handle chat messages
 async function handleChatMessage(ws, message) {
   const { userMessage, chatHistory } = message;
-  
+
   // Add user message to chat history
   const updatedChatHistory = [...chatHistory, { role: 'user', content: userMessage }];
-  
+
   // Send message to client indicating response is starting
   ws.send(JSON.stringify({
     type: 'response_start',
@@ -137,49 +219,175 @@ async function handleChatMessage(ws, message) {
   try {
     let fullResponse = '';
 
+    // Prepare messages for LLM with potential tool integration
+    let currentMessages = [...updatedChatHistory];
+
+    // Process with potential tool calling if MCP is enabled
+    if (config.enableMCP && llmIntegration) {
+      // First, check if we need to process with tools
+      const toolProcessingResult = await llmIntegration.processMessageWithTools(
+        currentMessages,
+        true, // Enable tools
+        {
+          maxToolCalls: 5, // Limit recursive tool calls
+          onToolCall: (toolCall) => {
+            console.log(`Tool called: ${toolCall.function?.name || toolCall.tool?.name}`);
+          },
+          onToolResult: (toolCall, result) => {
+            console.log(`Tool result: ${toolCall.function?.name || toolCall.tool?.name}`);
+          }
+        }
+      );
+
+      // Update messages if tools were executed
+      if (toolProcessingResult.needsToolExecution) {
+        currentMessages = toolProcessingResult.messages;
+
+        // Send tool results to client
+        ws.send(JSON.stringify({
+          type: 'tool_results',
+          results: toolProcessingResult.toolResults
+        }));
+      }
+    }
+
     if (config.provider === 'ollama') {
-      const response = await ollama.chat({
+      // Check if we should use tools with Ollama
+      const tools = config.enableMCP ? mcpClientManager.getToolsForLLM() : [];
+
+      const chatOptions = {
         model: config.ollamaModel,
-        messages: updatedChatHistory,
+        messages: currentMessages,
         stream: true
-      });
+      };
+
+      // Add tools if available and enabled
+      if (tools.length > 0) {
+        chatOptions.tools = llmIntegration.formatToolsForOpenAI(tools);
+      }
+
+      const response = await ollama.chat(chatOptions);
 
       for await (const part of response) {
         const content = part.message.content;
-        fullResponse += content;
-        
-        // Send incremental response to client
-        ws.send(JSON.stringify({
-          type: 'response_chunk',
-          content: content
-        }));
+        if (content) {
+          fullResponse += content;
+
+          // Send incremental response to client
+          ws.send(JSON.stringify({
+            type: 'response_chunk',
+            content: content
+          }));
+        }
+
+        // Handle tool calls if present in the response
+        if (part.message.tool_calls && config.enableMCP) {
+          for (const toolCall of part.message.tool_calls) {
+            try {
+              const result = await mcpClientManager.executeTool(
+                toolCall.function.name,
+                JSON.parse(toolCall.function.arguments)
+              );
+
+              // Add tool result to messages
+              currentMessages.push({
+                role: 'tool',
+                content: JSON.stringify(result),
+                tool_call_id: toolCall.id
+              });
+
+              // Send tool result to client
+              ws.send(JSON.stringify({
+                type: 'tool_result',
+                toolCallId: toolCall.id,
+                toolName: toolCall.function.name,
+                result: result
+              }));
+            } catch (error) {
+              console.error('Error executing tool:', error);
+
+              // Add error to messages
+              currentMessages.push({
+                role: 'system',
+                content: `Error executing tool ${toolCall.function.name}: ${error.message}`
+              });
+            }
+          }
+        }
       }
     } else {
       if (!openaiClient) {
         throw new Error('OpenAI client not initialized. Please set OPENAI_API_KEY environment variable.');
       }
 
-      const openaiMessages = updatedChatHistory.map(msg => ({
+      const openaiMessages = currentMessages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      const response = await openaiClient.chat.completions.create({
+      // Prepare tools for OpenAI if MCP is enabled
+      const tools = config.enableMCP ? mcpClientManager.getToolsForLLM() : [];
+      const openAITools = tools.length > 0 ? llmIntegration.formatToolsForOpenAI(tools) : undefined;
+
+      const chatOptions = {
         model: config.openaiModel,
         messages: openaiMessages,
         stream: true,
-      });
+      };
+
+      // Add tools if available and enabled
+      if (openAITools && openAITools.length > 0) {
+        chatOptions.tools = openAITools;
+      }
+
+      const response = await openaiClient.chat.completions.create(chatOptions);
 
       for await (const part of response) {
         const content = part.choices[0]?.delta?.content || '';
         if (content) {
           fullResponse += content;
-          
+
           // Send incremental response to client
           ws.send(JSON.stringify({
             type: 'response_chunk',
             content: content
           }));
+        }
+
+        // Handle tool calls if present in the response
+        const toolCallChunk = part.choices[0]?.delta?.tool_calls;
+        if (toolCallChunk && config.enableMCP) {
+          for (const toolCall of toolCallChunk) {
+            try {
+              const result = await mcpClientManager.executeTool(
+                toolCall.function.name,
+                JSON.parse(toolCall.function.arguments)
+              );
+
+              // Add tool result to messages
+              openaiMessages.push({
+                role: 'tool',
+                content: JSON.stringify(result),
+                tool_call_id: toolCall.id
+              });
+
+              // Send tool result to client
+              ws.send(JSON.stringify({
+                type: 'tool_result',
+                toolCallId: toolCall.id,
+                toolName: toolCall.function.name,
+                result: result
+              }));
+            } catch (error) {
+              console.error('Error executing tool:', error);
+
+              // Add error to messages
+              openaiMessages.push({
+                role: 'system',
+                content: `Error executing tool ${toolCall.function.name}: ${error.message}`
+              });
+            }
+          }
         }
       }
     }
@@ -192,7 +400,7 @@ async function handleChatMessage(ws, message) {
 
   } catch (error) {
     console.error('Error in chat processing:', error);
-    
+
     // Send error message to client
     ws.send(JSON.stringify({
       type: 'error',
@@ -520,16 +728,282 @@ async function searchSerpAPI(query, apiKey) {
   }
 }
 
+// MCP-related handler functions
+async function handleMCPConnect(ws, message) {
+  if (!config.enableMCP) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'MCP integration is disabled'
+    }));
+    return;
+  }
+
+  const { serverName } = message;
+
+  if (!serverName) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Server name is required'
+    }));
+    return;
+  }
+
+  try {
+    await mcpClientManager.connectToServer(serverName);
+
+    ws.send(JSON.stringify({
+      type: 'mcp_connected',
+      serverName: serverName,
+      message: `Connected to ${serverName}`
+    }));
+
+    // Also send updated status
+    ws.send(JSON.stringify({
+      type: 'mcp_status',
+      configuredServers: mcpClientManager.getConfiguredServers(),
+      connectedServers: mcpClientManager.getConnectedServers(),
+      availableTools: mcpClientManager.listTools().length,
+      enabled: true
+    }));
+  } catch (error) {
+    console.error('MCP connect error:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to connect to ${serverName}: ${error.message}`
+    }));
+  }
+}
+
+async function handleMCPDisconnect(ws, message) {
+  if (!config.enableMCP) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'MCP integration is disabled'
+    }));
+    return;
+  }
+
+  const { serverName } = message;
+
+  if (!serverName) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Server name is required'
+    }));
+    return;
+  }
+
+  try {
+    await mcpClientManager.disconnectFromServer(serverName);
+
+    ws.send(JSON.stringify({
+      type: 'mcp_disconnected',
+      serverName: serverName,
+      message: `Disconnected from ${serverName}`
+    }));
+
+    // Also send updated status
+    ws.send(JSON.stringify({
+      type: 'mcp_status',
+      configuredServers: mcpClientManager.getConfiguredServers(),
+      connectedServers: mcpClientManager.getConnectedServers(),
+      availableTools: mcpClientManager.listTools().length,
+      enabled: true
+    }));
+  } catch (error) {
+    console.error('MCP disconnect error:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to disconnect from ${serverName}: ${error.message}`
+    }));
+  }
+}
+
+async function handleMCPListServers(ws) {
+  if (!config.enableMCP) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'MCP integration is disabled'
+    }));
+    return;
+  }
+
+  try {
+    const configuredServers = mcpClientManager.getConfiguredServers();
+    const connectionStatuses = mcpClientManager.getAllConnectionStatuses();
+
+    ws.send(JSON.stringify({
+      type: 'mcp_servers_list',
+      configuredServers: configuredServers,
+      connectionStatuses: connectionStatuses
+    }));
+  } catch (error) {
+    console.error('MCP list servers error:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to list servers: ${error.message}`
+    }));
+  }
+}
+
+async function handleMCPListTools(ws, message) {
+  if (!config.enableMCP) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'MCP integration is disabled'
+    }));
+    return;
+  }
+
+  try {
+    let tools;
+    if (message && message.serverName) {
+      // List tools for specific server
+      tools = mcpClientManager.listTools(message.serverName);
+    } else {
+      // List all tools
+      tools = mcpClientManager.listTools();
+    }
+
+    ws.send(JSON.stringify({
+      type: 'mcp_tools_list',
+      tools: tools,
+      count: tools.length
+    }));
+  } catch (error) {
+    console.error('MCP list tools error:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to list tools: ${error.message}`
+    }));
+  }
+}
+
+async function handleMCPExecuteTool(ws, message) {
+  if (!config.enableMCP) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'MCP integration is disabled'
+    }));
+    return;
+  }
+
+  const { serverName, toolName, arguments: toolArgs } = message;
+
+  if (!serverName || !toolName) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Server name and tool name are required'
+    }));
+    return;
+  }
+
+  try {
+    // Send tool execution started message
+    ws.send(JSON.stringify({
+      type: 'mcp_tool_execution_started',
+      serverName,
+      toolName,
+      arguments: toolArgs
+    }));
+
+    const result = await mcpClientManager.executeTool(serverName, toolName, toolArgs || {});
+
+    ws.send(JSON.stringify({
+      type: 'mcp_tool_executed',
+      serverName,
+      toolName,
+      result,
+      success: true
+    }));
+  } catch (error) {
+    console.error('MCP execute tool error:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to execute tool ${toolName}: ${error.message}`,
+      serverName,
+      toolName
+    }));
+  }
+}
+
+async function handleMCPGetStatus(ws) {
+  if (!config.enableMCP) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'MCP integration is disabled'
+    }));
+    return;
+  }
+
+  try {
+    const configuredServers = mcpClientManager.getConfiguredServers();
+    const connectedServers = mcpClientManager.getConnectedServers();
+    const connectionStatuses = mcpClientManager.getAllConnectionStatuses();
+    const availableTools = mcpClientManager.listTools();
+    const toolCallStats = mcpClientManager.getToolStatistics();
+    const registryStats = mcpClientManager.getRegistryStatistics();
+
+    ws.send(JSON.stringify({
+      type: 'mcp_full_status',
+      configuredServers,
+      connectedServers,
+      connectionStatuses,
+      availableToolsCount: availableTools.length,
+      toolCallStats,
+      registryStats,
+      enabled: true
+    }));
+  } catch (error) {
+    console.error('MCP get status error:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to get MCP status: ${error.message}`
+    }));
+  }
+}
+
 // Route to serve the main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Route to get MCP configuration
+app.get('/api/mcp/config', (req, res) => {
+  if (config.enableMCP && mcpClientManager) {
+    res.json({
+      enabled: true,
+      configuredServers: mcpClientManager.getConfiguredServers(),
+      connectedServers: mcpClientManager.getConnectedServers(),
+      availableTools: mcpClientManager.listTools().length,
+      settings: mcpClientManager.getSettings()
+    });
+  } else {
+    res.json({
+      enabled: false,
+      message: 'MCP integration is disabled'
+    });
+  }
+});
+
 // Start the server
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   console.log('Supported environment variables:');
   console.log('  - OPENAI_API_KEY: Your API key for OpenAI provider');
   console.log('  - OPENAI_BASE_URL: Custom API endpoint (defaults to OpenAI)');
   console.log('  - AZURE_OPENAI_API_VERSION: API version for Azure OpenAI');
+  console.log('  - ENABLE_MCP: Enable MCP integration (defaults to true)');
+  console.log('  - MCP_CONFIG_PATH: Path to MCP config file (defaults to ./mcp-config.json)');
+
+  // Initialize MCP after server starts
+  await initializeMCP();
+
+  if (config.enableMCP) {
+    console.log('\nMCP Integration:');
+    console.log(`  - Config file: ${config.mcpConfigPath}`);
+    console.log(`  - Configured servers: ${mcpClientManager?.getConfiguredServers().join(', ') || 'None'}`);
+    console.log(`  - Connected servers: ${mcpClientManager?.getConnectedServers().join(', ') || 'None'}`);
+    console.log(`  - Available tools: ${mcpClientManager?.listTools().length || 0}`);
+  }
 });

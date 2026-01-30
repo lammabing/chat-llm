@@ -1,10 +1,17 @@
 {
   "mcpServers": {
-     "MCP_DOCKER": {
-      "command": "docker",
-      "args": ["mcp", "gateway", "run"],
-      "type": "stdio"
+    "EXAMPLE_STDIO_SERVER": {
+      "command": "node",
+      "args": ["lib/mcp/examples/example-server.js"],
+      "type": "stdio",
+      "autoConnect": false
     }
+  },
+  "mcpSettings": {
+    "enableToolCalling": true,
+    "logToolCalls": true,
+    "allowedTools": [],
+    "blockedTools": []
   }
 }
 
