@@ -1,3 +1,7 @@
+:root {
+    --app-max-width: 1200px;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -15,7 +19,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    max-width: 1200px;
+    max-width: var(--app-max-width);
     margin: 0 auto;
     background: white;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
@@ -122,6 +126,78 @@ header h1 {
     animation: fadeIn 0.3s ease;
 }
 
+/* Markdown rendered content styles */
+.message h1, .message h2, .message h3, .message h4, .message h5, .message h6 {
+    margin-top: 16px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.message h1 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+.message h2 { font-size: 1.3em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+.message h3 { font-size: 1.1em; }
+.message h4 { font-size: 1em; }
+.message h5 { font-size: 0.9em; }
+.message h6 { font-size: 0.85em; color: #6a737d; }
+
+.message p {
+    margin-bottom: 12px;
+    line-height: 1.6;
+}
+
+.message ul, .message ol {
+    margin-bottom: 12px;
+    padding-left: 2em;
+}
+
+.message li {
+    margin-bottom: 4px;
+}
+
+.message li > ul, .message li > ol {
+    margin-top: 4px;
+}
+
+.message blockquote {
+    margin: 12px 0;
+    padding: 0 16px;
+    color: #6a737d;
+    border-left: 4px solid #dfe2e5;
+}
+
+.message strong {
+    font-weight: 600;
+}
+
+.message em {
+    font-style: italic;
+}
+
+.message a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+.message a:hover {
+    text-decoration: underline;
+}
+
+.message hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+
+.message img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+/* Code blocks */
 .code-block-container {
     margin: 10px 0;
     overflow-x: auto;
@@ -143,6 +219,37 @@ header h1 {
     background: none;
     color: #333;
     padding: 0;
+}
+
+/* Inline code */
+.message code {
+    background-color: rgba(27, 31, 35, 0.05);
+    border-radius: 3px;
+    font-size: 85%;
+    margin: 0;
+    padding: 0.2em 0.4em;
+    font-family: 'Courier New', monospace;
+}
+
+.message pre {
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-size: 85%;
+    line-height: 1.45;
+    overflow: auto;
+    padding: 16px;
+    margin: 12px 0;
+}
+
+.message pre code {
+    background-color: transparent;
+    border: 0;
+    display: inline;
+    line-height: inherit;
+    margin: 0;
+    overflow: visible;
+    padding: 0;
+    word-wrap: normal;
 }
 
 .markdown-table {

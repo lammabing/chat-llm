@@ -315,16 +315,14 @@ async function handleModelSelect(ws, message) {
 async function handleListModels(ws) {
   if (config.provider === 'ollama') {
     try {
-      // Ollama doesn't have a direct models list API in the client, so we'll simulate
-      const models = [
-        'gpt-oss:120b-cloud',
-        'qwen3-coder:480b-cloud',
-        'llama3.1',
-        'mistral',
-        'gemma:7b',
-        'phi3:3.8b'
-      ];
-      
+      // Fetch models from Ollama API
+      const response = await fetch('http://localhost:11434/v1/models');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      const models = data.data.map(m => m.id);
+
       ws.send(JSON.stringify({
         type: 'models_list',
         provider: 'ollama',
@@ -334,7 +332,7 @@ async function handleListModels(ws) {
       console.error('Error listing Ollama models:', error.message);
       ws.send(JSON.stringify({
         type: 'error',
-        message: error.message
+        message: `Failed to fetch Ollama models: ${error.message}. Make sure Ollama is running on localhost:11434`
       }));
     }
   } else if (config.provider === 'openai') {

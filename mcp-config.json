@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "Tabby MCP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "tabby-mcp-stdio",
+        "--port",
+        "3001"
+      ]
+    }
+  }
+}

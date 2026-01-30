@@ -161,17 +161,20 @@ async function getOpenAIResponse(messages) {
 async function listModels() {
   if (config.provider === 'ollama') {
     try {
-      // Ollama doesn't have a direct models list API in the client, so we'll simulate
-      console.log('Available Ollama models (example):');
-      console.log('- gpt-oss:120b-cloud');
-      console.log('- qwen3-coder:480b-cloud');
-      console.log('- llama3.1');
-      console.log('- mistral');
-      console.log('- gemma:7b');
-      console.log('- phi3:3.8b');
-      console.log('Note: Ollama does not provide a built-in API to list all available models.\n');
+      // Fetch models from Ollama API
+      const response = await fetch('http://localhost:11434/v1/models');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log('Available Ollama models:');
+      data.data.forEach(model => {
+        console.log(`- ${model.id}`);
+      });
+      console.log('');
     } catch (error) {
       console.error('Error listing Ollama models:', error.message);
+      console.log('Failed to fetch Ollama models. Make sure Ollama is running on localhost:11434\n');
     }
   } else if (config.provider === 'openai') {
     try {

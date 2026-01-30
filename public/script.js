@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
             chatHistory.push({ role: 'user', content: content });
         } else if (role === 'assistant') {
             messageDiv.classList.add('assistant-message');
-            messageDiv.innerHTML = `<strong>Assistant:</strong><br>${formatMessage(content)}`;
+            messageDiv.innerHTML = `<strong>Assistant:</strong><div class="markdown-content">${formatMessage(content)}</div>`;
         } else if (role === 'system') {
             messageDiv.classList.add('system-message');
             messageDiv.textContent = content;
@@ -172,134 +172,31 @@ document.addEventListener('DOMContentLoaded', () => {
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
     
-    // Format message content (add line breaks for readability and handle code blocks and tables)
+    // Format message content using marked.js for markdown rendering
     function formatMessage(text) {
-        // First, handle code blocks to avoid formatting content inside them
-        // This regex looks for ```language (optional) followed by content and ending with ```
-        const codeBlockRegex = /```(?:\w+)?\n?([\s\S]*?)\n?```/g;
+        if (!text) return '';
 
-        // Store code blocks temporarily so they don't get further processed
-        const tempCodeBlocks = [];
-        text = text.replace(codeBlockRegex, (match, codeContent) => {
-            // Escape HTML entities in the code content
-            const escapedCode = escapeHtml(codeContent);
-            const placeholder = `__TEMP_CODE_BLOCK_${tempCodeBlocks.length}__`;
-            tempCodeBlocks.push(`<div class="code-block-container">
-                                   <pre class="code-block"><code>${escapedCode}</code></pre>
-                                 </div>`);
-            return placeholder;
+        // Configure marked options
+        marked.setOptions({
+            breaks: true,        // Convert single newlines to <br>
+            gfm: true,          // GitHub Flavored Markdown
+            headerIds: false,   // Don't add IDs to headers
+            mangle: false,      // Don't mangle email addresses
+            sanitize: false,    // We'll use DOMPurify or manual sanitization
+            smartLists: true,   // Use smarter list behavior
+            smartypants: true,  // Use smart punctuation
+            xhtml: false        // Don't close empty tags with />
         });
 
-        // Handle Markdown tables
-        text = parseMarkdownTables(text);
+        // Render markdown to HTML using marked
+        let html = marked.parse(text);
 
-        // Handle markdown-style links [text](url)
-        text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-
-        // Replace code block placeholders with actual HTML
-        tempCodeBlocks.forEach((codeBlockHtml, index) => {
-            text = text.replace(`__TEMP_CODE_BLOCK_${index}__`, codeBlockHtml);
-        });
-
-        // Handle line breaks for the remaining text (outside code blocks)
-        return text.replace(/\n/g, '<br>');
-    }
-
-    // Function to parse Markdown tables
-    function parseMarkdownTables(text) {
-        // Split the text into lines
-        const lines = text.split('\n');
-        let result = '';
-        let inTable = false;
-        let tableRows = [];
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            // Check if this line is a table row (contains | and at least one cell separator)
-            const isTableRow = line.trim().startsWith('|') && line.includes('|');
-
-            // Check if this line is a separator row (e.g., |------|------|)
-            const isSeparatorRow = isTableRow &&
-                                  line.trim().match(/\|[-: \t]+\|/g) &&
-                                  line.trim().match(/\|[-: \t]+\|/g).length > 0;
-
-            if (isTableRow && !isSeparatorRow && !inTable) {
-                // This is the beginning of a table (header row)
-                inTable = true;
-                tableRows = [line];
-            } else if (isTableRow && inTable) {
-                // This is another row in an existing table
-                tableRows.push(line);
-            } else if (!isTableRow && inTable) {
-                // We were in a table but have reached the end
-                result += createTableHTML(tableRows);
-                result += line + '\n';
-                inTable = false;
-                tableRows = [];
-            } else {
-                // Regular line
-                result += line + '\n';
-            }
-        }
-
-        // If we're still in a table at the end of the text
-        if (inTable) {
-            result += createTableHTML(tableRows);
-        }
-
-        // Remove the trailing newline that was added in the loop
-        return result.trimEnd();
-    }
-
-    // Function to create HTML for a table from Markdown table rows
-    function createTableHTML(rows) {
-        if (rows.length === 0) return '';
-
-        let html = '<table class="markdown-table"><tbody>';
-
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-
-            // Skip separator rows (they define alignment but don't appear in final table)
-            if (row.trim().match(/\|[-: \t]+\|/g)) {
-                continue;
-            }
-
-            // Split the row by pipe character and remove leading/trailing pipes
-            const cells = row.split('|').slice(1, -1);
-
-            html += '<tr>';
-            for (const cell of cells) {
-                // Format cell content with basic markdown support
-                let formattedCell = formatTableCellContent(cell.trim());
-                html += `<td>${formattedCell}</td>`;
-            }
-            html += '</tr>';
-        }
-
-        html += '</tbody></table>';
         return html;
-    }
-
-    // Function to format content within table cells (for basic markdown support)
-    function formatTableCellContent(content) {
-        // Handle bold text (**bold** or __bold__)
-        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        content = content.replace(/__(.*?)__/g, '<strong>$1</strong>');
-
-        // Handle italic text (*italic* or _italic_)
-        content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        content = content.replace(/_(.*?)_/g, '<em>$1</em>');
-
-        // Handle links [text](url)
-        content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-
-        return content;
     }
 
     // Function to escape HTML entities to prevent XSS
     function escapeHtml(unsafe) {
+        if (!unsafe) return '';
         return unsafe
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
@@ -314,11 +211,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (messages.length > 0) {
             const lastMessage = messages[messages.length - 1];
             if (lastMessage.classList.contains('assistant-message')) {
-                const contentElement = lastMessage.querySelector('strong');
-                if (contentElement) {
-                    contentElement.insertAdjacentHTML('afterend', formatMessage(content));
+                const markdownContent = lastMessage.querySelector('.markdown-content');
+                if (markdownContent) {
+                    // For streaming, accumulate raw text and re-render
+                    const currentRawText = markdownContent.dataset.rawText || '';
+                    const newRawText = currentRawText + content;
+                    markdownContent.dataset.rawText = newRawText;
+                    markdownContent.innerHTML = formatMessage(newRawText);
                 } else {
-                    lastMessage.innerHTML += formatMessage(content);
+                    // Fallback: create markdown-content div
+                    const newContent = document.createElement('div');
+                    newContent.classList.add('markdown-content');
+                    newContent.dataset.rawText = content;
+                    newContent.innerHTML = formatMessage(content);
+                    lastMessage.appendChild(newContent);
                 }
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
