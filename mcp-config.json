@@ -1,13 +1,10 @@
 {
   "mcpServers": {
-    "Tabby MCP": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "tabby-mcp-stdio",
-        "--port",
-        "3001"
-      ]
+     "MCP_DOCKER": {
+      "command": "docker",
+      "args": ["mcp", "gateway", "run"],
+      "type": "stdio"
     }
   }
 }
+

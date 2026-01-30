@@ -19,7 +19,8 @@
     "basic": "node interface.js",
     "stream": "node streaming.js",
     "puter-chat": "node puter-chat-interface.js",
-    "puter-multi": "node puter-multi-agent-chat.js"
+    "puter-multi": "node puter-multi-agent-chat.js",
+    "mcp-test": "node lib/mcp/test-mcp.js"
   },
   "keywords": [],
   "author": "",
