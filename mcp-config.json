@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "EXAMPLE_STDIO_SERVER": {
+    "time-server": {
       "command": "node",
       "args": ["lib/mcp/examples/example-server.js"],
       "type": "stdio",
-      "autoConnect": false
+      "autoConnect": true
     }
   },
   "mcpSettings": {

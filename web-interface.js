@@ -224,172 +224,273 @@ async function handleChatMessage(ws, message) {
 
     // Process with potential tool calling if MCP is enabled
     if (config.enableMCP && llmIntegration) {
-      // First, check if we need to process with tools
-      const toolProcessingResult = await llmIntegration.processMessageWithTools(
-        currentMessages,
-        true, // Enable tools
-        {
-          maxToolCalls: 5, // Limit recursive tool calls
-          onToolCall: (toolCall) => {
-            console.log(`Tool called: ${toolCall.function?.name || toolCall.tool?.name}`);
-          },
-          onToolResult: (toolCall, result) => {
-            console.log(`Tool result: ${toolCall.function?.name || toolCall.tool?.name}`);
+      try {
+        // First, check if we need to process with tools
+        const toolProcessingResult = await llmIntegration.processMessageWithTools(
+          currentMessages,
+          true, // Enable tools
+          {
+            maxToolCalls: 5, // Limit recursive tool calls
+            onToolCall: (toolCall) => {
+              console.log(`Tool called: ${toolCall.function?.name || toolCall.tool?.name}`);
+            },
+            onToolResult: (toolCall, result) => {
+              console.log(`Tool result: ${toolCall.function?.name || toolCall.tool?.name}`);
+            }
+          }
+        );
+
+        // Check if tools were executed
+        if (toolProcessingResult.needsToolExecution) {
+          currentMessages = toolProcessingResult.messages;
+
+          // Send tool results to client
+          ws.send(JSON.stringify({
+            type: 'tool_results',
+            results: toolProcessingResult.toolResults
+          }));
+
+          // Check if the LLM integration has already generated a final response
+          // by comparing message lengths before and after tool processing
+          const lastMessage = toolProcessingResult.messages[toolProcessingResult.messages.length - 1];
+          if (lastMessage && lastMessage.role === 'assistant' && lastMessage.content) {
+            fullResponse = lastMessage.content;
+
+            // Send the final response to the client
+            ws.send(JSON.stringify({
+              type: 'response_complete',
+              content: fullResponse
+            }));
+
+            // End here since the LLM integration has already processed the full conversation
+            return;
           }
         }
-      );
-
-      // Update messages if tools were executed
-      if (toolProcessingResult.needsToolExecution) {
-        currentMessages = toolProcessingResult.messages;
-
-        // Send tool results to client
-        ws.send(JSON.stringify({
-          type: 'tool_results',
-          results: toolProcessingResult.toolResults
-        }));
+      } catch (error) {
+        console.error('Error in LLM tool processing:', error);
+        // Continue with normal processing if tool processing fails
       }
     }
 
+    // If no tools were executed or we need to continue with direct LLM call
     if (config.provider === 'ollama') {
-      // Check if we should use tools with Ollama
-      const tools = config.enableMCP ? mcpClientManager.getToolsForLLM() : [];
+      // Process potentially multiple turns if tools are involved
+      let messagesForLLM = [...currentMessages];
+      let hasToolCalls = false;
 
-      const chatOptions = {
-        model: config.ollamaModel,
-        messages: currentMessages,
-        stream: true
-      };
+      // Loop to handle multiple turns if tools are called
+      do {
+        hasToolCalls = false;
 
-      // Add tools if available and enabled
-      if (tools.length > 0) {
-        chatOptions.tools = llmIntegration.formatToolsForOpenAI(tools);
-      }
+        // Check if we should use tools with Ollama
+        const tools = config.enableMCP ? mcpClientManager.getToolsForLLM() : [];
 
-      const response = await ollama.chat(chatOptions);
+        const chatOptions = {
+          model: config.ollamaModel,
+          messages: messagesForLLM,
+          stream: true
+        };
 
-      for await (const part of response) {
-        const content = part.message.content;
-        if (content) {
-          fullResponse += content;
-
-          // Send incremental response to client
-          ws.send(JSON.stringify({
-            type: 'response_chunk',
-            content: content
+        // Add tools if available and enabled
+        if (tools.length > 0) {
+          // Format tools appropriately for Ollama
+          chatOptions.tools = tools.map(tool => ({
+            name: tool.name,
+            description: tool.description || '',
+            parameters: tool.inputSchema || {
+              type: 'object',
+              properties: {}
+            }
           }));
         }
 
-        // Handle tool calls if present in the response
-        if (part.message.tool_calls && config.enableMCP) {
-          for (const toolCall of part.message.tool_calls) {
-            try {
-              const result = await mcpClientManager.executeTool(
-                toolCall.function.name,
-                JSON.parse(toolCall.function.arguments)
-              );
+        const response = await ollama.chat(chatOptions);
 
-              // Add tool result to messages
-              currentMessages.push({
-                role: 'tool',
-                content: JSON.stringify(result),
-                tool_call_id: toolCall.id
-              });
+        for await (const part of response) {
+          const content = part.message.content;
+          if (content) {
+            fullResponse += content;
 
-              // Send tool result to client
-              ws.send(JSON.stringify({
-                type: 'tool_result',
-                toolCallId: toolCall.id,
-                toolName: toolCall.function.name,
-                result: result
-              }));
-            } catch (error) {
-              console.error('Error executing tool:', error);
+            // Send incremental response to client
+            ws.send(JSON.stringify({
+              type: 'response_chunk',
+              content: content
+            }));
+          }
 
-              // Add error to messages
-              currentMessages.push({
-                role: 'system',
-                content: `Error executing tool ${toolCall.function.name}: ${error.message}`
-              });
+          // Handle tool calls if present in the response
+          if (part.message.tool_calls && config.enableMCP) {
+            hasToolCalls = true;
+
+            for (const toolCall of part.message.tool_calls) {
+              try {
+                // Safely parse arguments - they might already be an object
+                let args = toolCall.function.arguments;
+                if (typeof args === 'string') {
+                  args = JSON.parse(args);
+                }
+
+                // Find the server for this tool
+                const tools = mcpClientManager.listTools();
+                const tool = tools.find(t => t.name === toolCall.function.name);
+
+                if (!tool) {
+                  throw new Error(`Tool ${toolCall.function.name} not found`);
+                }
+
+                const result = await mcpClientManager.executeTool(
+                  tool.serverName,
+                  toolCall.function.name,
+                  args
+                );
+
+                // Add tool result to messages
+                messagesForLLM.push({
+                  role: 'tool',
+                  content: JSON.stringify(result),
+                  tool_call_id: toolCall.id
+                });
+
+                // Send tool result to client
+                ws.send(JSON.stringify({
+                  type: 'tool_result',
+                  toolCallId: toolCall.id,
+                  toolName: toolCall.function.name,
+                  result: result
+                }));
+
+                // Clear previous response since we need to get a new one with tool results
+                fullResponse = '';
+              } catch (error) {
+                console.error('Error executing tool:', error);
+
+                // Add error to messages
+                messagesForLLM.push({
+                  role: 'system',
+                  content: `Error executing tool ${toolCall.function.name}: ${error.message}`
+                });
+
+                // Send error to client
+                ws.send(JSON.stringify({
+                  type: 'tool_error',
+                  toolName: toolCall.function.name,
+                  error: error.message
+                }));
+              }
             }
           }
         }
-      }
+      } while (hasToolCalls); // Continue if tools were called
+
     } else {
       if (!openaiClient) {
         throw new Error('OpenAI client not initialized. Please set OPENAI_API_KEY environment variable.');
       }
 
-      const openaiMessages = currentMessages.map(msg => ({
+      let openaiMessages = currentMessages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // Prepare tools for OpenAI if MCP is enabled
-      const tools = config.enableMCP ? mcpClientManager.getToolsForLLM() : [];
-      const openAITools = tools.length > 0 ? llmIntegration.formatToolsForOpenAI(tools) : undefined;
+      let hasToolCalls = false;
 
-      const chatOptions = {
-        model: config.openaiModel,
-        messages: openaiMessages,
-        stream: true,
-      };
+      // Loop to handle multiple turns if tools are called
+      do {
+        hasToolCalls = false;
 
-      // Add tools if available and enabled
-      if (openAITools && openAITools.length > 0) {
-        chatOptions.tools = openAITools;
-      }
+        // Prepare tools for OpenAI if MCP is enabled
+        const tools = config.enableMCP ? mcpClientManager.getToolsForLLM() : [];
+        const openAITools = tools.length > 0 ? llmIntegration.formatToolsForOpenAI(tools) : undefined;
 
-      const response = await openaiClient.chat.completions.create(chatOptions);
+        const chatOptions = {
+          model: config.openaiModel,
+          messages: openaiMessages,
+          stream: true,
+        };
 
-      for await (const part of response) {
-        const content = part.choices[0]?.delta?.content || '';
-        if (content) {
-          fullResponse += content;
-
-          // Send incremental response to client
-          ws.send(JSON.stringify({
-            type: 'response_chunk',
-            content: content
-          }));
+        // Add tools if available and enabled
+        if (openAITools && openAITools.length > 0) {
+          chatOptions.tools = openAITools;
         }
 
-        // Handle tool calls if present in the response
-        const toolCallChunk = part.choices[0]?.delta?.tool_calls;
-        if (toolCallChunk && config.enableMCP) {
-          for (const toolCall of toolCallChunk) {
-            try {
-              const result = await mcpClientManager.executeTool(
-                toolCall.function.name,
-                JSON.parse(toolCall.function.arguments)
-              );
+        const response = await openaiClient.chat.completions.create(chatOptions);
 
-              // Add tool result to messages
-              openaiMessages.push({
-                role: 'tool',
-                content: JSON.stringify(result),
-                tool_call_id: toolCall.id
-              });
+        for await (const part of response) {
+          const content = part.choices[0]?.delta?.content || '';
+          if (content) {
+            fullResponse += content;
 
-              // Send tool result to client
-              ws.send(JSON.stringify({
-                type: 'tool_result',
-                toolCallId: toolCall.id,
-                toolName: toolCall.function.name,
-                result: result
-              }));
-            } catch (error) {
-              console.error('Error executing tool:', error);
+            // Send incremental response to client
+            ws.send(JSON.stringify({
+              type: 'response_chunk',
+              content: content
+            }));
+          }
 
-              // Add error to messages
-              openaiMessages.push({
-                role: 'system',
-                content: `Error executing tool ${toolCall.function.name}: ${error.message}`
-              });
+          // Handle tool calls if present in the response
+          const toolCallChunk = part.choices[0]?.delta?.tool_calls;
+          if (toolCallChunk && config.enableMCP) {
+            hasToolCalls = true;
+
+            for (const toolCall of toolCallChunk) {
+              try {
+                // Safely parse arguments - they might already be an object
+                let args = toolCall.function.arguments;
+                if (typeof args === 'string') {
+                  args = JSON.parse(args);
+                }
+
+                // Find the server for this tool
+                const tools = mcpClientManager.listTools();
+                const tool = tools.find(t => t.name === toolCall.function.name);
+
+                if (!tool) {
+                  throw new Error(`Tool ${toolCall.function.name} not found`);
+                }
+
+                const result = await mcpClientManager.executeTool(
+                  tool.serverName,
+                  toolCall.function.name,
+                  args
+                );
+
+                // Add tool result to messages
+                openaiMessages.push({
+                  role: 'tool',
+                  content: JSON.stringify(result),
+                  tool_call_id: toolCall.id
+                });
+
+                // Send tool result to client
+                ws.send(JSON.stringify({
+                  type: 'tool_result',
+                  toolCallId: toolCall.id,
+                  toolName: toolCall.function.name,
+                  result: result
+                }));
+
+                // Clear previous response since we need to get a new one with tool results
+                fullResponse = '';
+              } catch (error) {
+                console.error('Error executing tool:', error);
+
+                // Add error to messages
+                openaiMessages.push({
+                  role: 'system',
+                  content: `Error executing tool ${toolCall.function.name}: ${error.message}`
+                });
+
+                // Send error to client
+                ws.send(JSON.stringify({
+                  type: 'tool_error',
+                  toolName: toolCall.function.name,
+                  error: error.message
+                }));
+              }
             }
           }
         }
-      }
+      } while (hasToolCalls); // Continue if tools were called
     }
 
     // Send final response to client

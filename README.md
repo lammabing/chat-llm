@@ -124,3 +124,45 @@ This project serves as an example of how to integrate with different AI APIs usi
 - Multi-agent conversations
 - Error handling
 - Usage of different models from different providers
+- MCP (Model Context Protocol) integration for enhanced tool calling capabilities
+
+## MCP (Model Context Protocol) Integration
+
+This project includes MCP integration that allows LLMs to connect to external tools and data sources. The MCP integration enables:
+
+- **Tool Discovery**: Automatically discovers available tools from configured MCP servers
+- **Tool Execution**: Executes external tools and incorporates results into LLM responses
+- **Multi-turn Conversations**: Supports complex interactions requiring multiple tool calls
+- **Multiple Transport Types**: Supports stdio, SSE, and StreamableHTTP transports
+
+### MCP Configuration
+
+MCP servers are configured in `mcp-config.json`:
+
+```json
+{
+  "mcpServers": {
+    "time-server": {
+      "command": "node",
+      "args": ["/path/to/time-server/build/index.js"],
+      "type": "stdio",
+      "env": {}
+    }
+  }
+}
+```
+
+### Supported Transport Types
+
+- **Stdio**: For local MCP servers that communicate via stdin/stdout
+- **SSE**: For remote MCP servers using Server-Sent Events
+- **StreamableHTTP**: For remote MCP servers using streaming HTTP
+
+### Tool Calling Flow
+
+1. LLM receives user input and decides to call a tool
+2. Tool is executed on the appropriate MCP server
+3. Tool result is returned to the LLM
+4. LLM generates final response incorporating tool result
+
+Example: When asking "What time is it?", the LLM can call the `get_time` tool and receive a response like "The current time is **2:28 PM** (Asia/Shanghai timezone)."
