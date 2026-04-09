@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Highlighting Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            margin-top: 0;
+            color: #24292f;
+        }
+    </style>
+</head>
+<body>
+    <h1>Code Syntax Highlighting Test</h1>
+    
+    <div class="test-section">
+        <h2>JavaScript</h2>
+        <div id="js-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Python</h2>
+        <div id="python-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Bash</h2>
+        <div id="bash-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>SQL</h2>
+        <div id="sql-test"></div>
+    </div>
+
+    <script>
+        // Configure marked with highlight.js
+        if (typeof marked !== 'undefined' && typeof hljs !== 'undefined') {
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            return hljs.highlight(code, { language: lang }).value;
+                        } catch (err) {}
+                    }
+                    return hljs.highlight(code, { language: 'plaintext' }).value;
+                },
+                breaks: true,
+                gfm: true
+            });
+        }
+        
+        // Copy the enhanceCodeBlocks function from script.js
+        function enhanceCodeBlocks(container) {
+            const codeBlocks = container.querySelectorAll('pre code');
+            
+            codeBlocks.forEach((codeEl, index) => {
+                const preEl = codeEl.parentElement;
+                if (!preEl || preEl.classList.contains('enhanced')) return;
+                
+                preEl.classList.add('enhanced');
+                
+                const langClass = codeEl.className.match(/language-(\w+)/);
+                const lang = langClass ? langClass[1] : 'text';
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'code-block-wrapper';
+                
+                const header = document.createElement('div');
+                header.className = 'code-block-header';
+                header.innerHTML = `
+                    <span class="code-lang-label">${lang}</span>
+                    <button class="copy-code-btn" title="Copy to clipboard">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/>
+                            <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/>
+                        </svg>
+                        Copy
+                    </button>
+                `;
+                
+                preEl.parentNode.insertBefore(wrapper, preEl);
+                wrapper.appendChild(header);
+                wrapper.appendChild(preEl);
+                
+                const copyBtn = header.querySelector('.copy-code-btn');
+                copyBtn.addEventListener('click', async () => {
+                    const code = codeEl.textContent;
+                    try {
+                        await navigator.clipboard.writeText(code);
+                        copyBtn.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+                            </svg>
+                            Copied!
+                        `;
+                        copyBtn.classList.add('copied');
+                        setTimeout(() => {
+                            copyBtn.innerHTML = `
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/>
+                                    <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/>
+                                </svg>
+                                Copy
+                            `;
+                            copyBtn.classList.remove('copied');
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy:', err);
+                    }
+                });
+            });
+        }
+        
+        const jsCode = `
+# JavaScript Example
+
+\`\`\`javascript
+function fibonacci(n) {
+    if (n <= 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+// Calculate first 10 Fibonacci numbers
+for (let i = 0; i < 10; i++) {
+    console.log(\`F(\${i}) = \${fibonacci(i)}\`);
+}
+\`\`\`
+`;
+
+const pythonCode = `
+# Python Example
+
+\`\`\`python
+import csv
+from collections import defaultdict
+
+def read_csv_data(filename):
+    """Read CSV file and return statistics"""
+    data = defaultdict(list)
+    
+    with open(filename, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            data[row['category']].append(float(row['value']))
+    
+    return {
+        category: {
+            'mean': sum(values) / len(values),
+            'max': max(values),
+            'min': min(values)
+        }
+        for category, values in data.items()
+    }
+
+# Usage
+stats = read_csv_data('data.csv')
+print(stats)
+\`\`\`
+`;
+
+const bashCode = `
+# Bash Example
+
+\`\`\`bash
+# Find all JavaScript files modified in the last 7 days
+find /path/to/project \\
+    -name "*.js" \\
+    -type f \\
+    -mtime -7 \\
+    -exec ls -lh {} \\; | \\
+    sort -k9
+\`\`\`
+`;
+
+const sqlCode = `
+# SQL Example
+
+\`\`\`sql
+SELECT 
+    u.username,
+    u.email,
+    COUNT(p.id) as post_count,
+    AVG(p.score) as avg_score,
+    ROW_NUMBER() OVER (ORDER BY COUNT(p.id) DESC) as rank
+FROM users u
+LEFT JOIN posts p ON u.id = p.user_id
+WHERE u.created_at >= '2024-01-01'
+GROUP BY u.id, u.username, u.email
+HAVING COUNT(p.id) > 5
+ORDER BY post_count DESC
+LIMIT 10;
+\`\`\`
+`;
+        
+        window.addEventListener('load', () => {
+            const tests = [
+                { id: 'js-test', content: jsCode },
+                { id: 'python-test', content: pythonCode },
+                { id: 'bash-test', content: bashCode },
+                { id: 'sql-test', content: sqlCode }
+            ];
+            
+            tests.forEach(test => {
+                const el = document.getElementById(test.id);
+                el.innerHTML = marked.parse(test.content);
+                enhanceCodeBlocks(el);
+            });
+        });
+    </script>
+</body>
+</html>

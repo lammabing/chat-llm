@@ -1,143 +1,208 @@
-# Ollama and Puter JavaScript Client
+# Ollama JavaScript Client with Web Interface
 
-This project demonstrates how to interact with both Ollama and Puter AI APIs using JavaScript. The project includes examples for chat completions, streaming responses, and multi-agent conversations.
+This project demonstrates how to interact with Ollama and other AI APIs using JavaScript, featuring a **full-featured web interface** with syntax highlighting, math rendering, and MCP integration.
 
-## Project Overview
+## Features
 
-This project contains examples for:
+- **Ollama API** - Local language model support
+- **OpenAI-compatible API** - Cloud-based AI models
+- **Web Interface** - Modern chat UI with:
+  - Syntax-highlighted code blocks (22+ languages)
+  - Mathematical notation rendering (LaTeX/KaTeX)
+  - Copy-to-clipboard for code
+  - Streaming responses
+  - Multi-provider support (Ollama, OpenAI)
+- **MCP Integration** - Model Context Protocol for tool calling
+- **Search Integration** - DuckDuckGo, Tavily, SerpAPI support
 
-- **Ollama API**: Using local language models
-- **Puter API**: Using cloud-based AI models with the Puter platform
+## Project Structure
 
-## Key Files
+### Core Files
 
-- `interface.js` - Basic Ollama chat completion example
-- `streaming.js` - Ollama streaming chat completion example
-- `chat-interface.js` - Interactive Ollama chat interface
-- `multi-agent-chat.js` - Multi-agent conversations using Ollama
-- `puter-chat-interface.js` - Interactive chat interface using Puter API (Node.js)
-- `puter-chat-interface.html` - Interactive chat interface using Puter API (Browser)
-- `puter-multi-agent-chat.js` - Multi-agent conversations using Puter API
+| File | Description |
+|------|-------------|
+| `interface.js` | Basic Ollama chat completion |
+| `streaming.js` | Ollama streaming example |
+| `chat-interface.js` | CLI chat for Ollama |
+| `hybrid-chat-interface.js` | CLI chat with Ollama + OpenAI |
+| `web-interface.js` | **Web server with WebSocket chat** |
+| `multi-agent-chat.js` | Multi-agent conversations |
+
+### Web Interface
+
+| File | Description |
+|------|-------------|
+| `public/index.html` | Main web interface HTML |
+| `public/script.js` | Frontend JavaScript logic |
+| `public/styles.css` | Styling and layout |
+| `public/test-math.html` | Math rendering test page |
+| `public/test-code-highlight.html` | Code highlighting test page |
+| `public/test-highlight-standalone.html` | Standalone Highlight.js test |
+
+### Configuration
+
+| File | Description |
+|------|-------------|
+| `package.json` | Dependencies and scripts |
+| `mcp-config.json` | MCP server configuration |
+| `.env` | Environment variables (API keys) |
+
+### Documentation
+
+| File | Description |
+|------|-------------|
+| `MATH_RENDERING.md` | Math notation support guide |
+| `plans/CODE_HIGHLIGHTING.md` | Code highlighting user guide |
+| `plans/CODE_HIGHLIGHTING_IMPLEMENTATION.md` | Code highlighting technical docs |
+| `plans/MATH_RENDERING_FINAL.md` | Math rendering technical docs |
+| `PUTER_INTEGRATION.md` | Puter API integration docs |
+| `MULTI_AGENT_CHAT.md` | Multi-agent chat docs |
 
 ## Setup and Installation
 
-1. Ensure you have Node.js installed (version compatible with ES modules)
-2. For Ollama examples:
-   - Make sure Ollama is installed and running on your system
-3. For Puter examples:
-   - Access to the Puter API requires signing into a Puter account (https://puter.com)
-4. Install project dependencies:
+### Prerequisites
+
+- **Node.js** - ES module support required
+- **Ollama** - For local model access (optional)
+- **OpenAI API Key** - For cloud model access (optional)
+
+### Installation
 
 ```bash
 npm install
 ```
 
-## Running Examples
+### Environment Variables
 
-### Ollama Examples
+Create a `.env` file (optional):
 
-To run the basic Ollama chat example:
 ```bash
+# OpenAI API
+OPENAI_API_KEY=your-key-here
+OPENAI_BASE_URL=https://api.openai.com/v1
+
+# Search API (optional)
+SEARCH_PROVIDER=duckduckgo
+SEARCH_API_KEY=your-key-here
+
+# MCP (optional)
+ENABLE_MCP=true
+MCP_CONFIG_PATH=./mcp-config.json
+```
+
+## Running the Application
+
+### CLI Examples
+
+```bash
+# Basic Ollama chat
 node interface.js
-```
 
-To run the Ollama streaming chat example:
-```bash
+# Streaming chat
 node streaming.js
-```
 
-To run the interactive Ollama chat interface:
-```bash
+# Interactive CLI chat
 node chat-interface.js
-```
 
-To run Ollama multi-agent examples:
-```bash
-node multi-agent-chat.js
-```
+# Hybrid chat (Ollama + OpenAI)
+node hybrid-chat-interface.js
 
-For interactive multi-agent mode:
-```bash
+# Multi-agent mode
 node multi-agent-chat.js --interactive
 ```
 
-### Puter Examples
+### Web Interface
 
-To run the Puter chat interface (Node.js version - note: this is a simulation, see below):
 ```bash
-node puter-chat-interface.js
+# Start the web server
+node web-interface.js
+
+# Or using npm
+npm start
 ```
 
-To run the Puter multi-agent examples:
-```bash
-node puter-multi-agent-chat.js
+Then open: **http://localhost:3075**
+
+### Web Interface Features
+
+#### Code Syntax Highlighting
+- **22 languages** supported
+- GitHub Dark theme
+- Copy-to-clipboard button
+- Language labels
+
+**Supported languages:**
+JavaScript, TypeScript, Python, Bash, Shell, JSON, CSS, XML, SQL, Java, C++, C, C#, Go, Rust, Ruby, PHP, YAML, Markdown, Plaintext, HTTP, Dockerfile
+
+#### Math Rendering
+- LaTeX notation: `\[...\]` (block), `\(...\)` (inline)
+- Dollar notation: `$$...$$` (block), `$...$` (inline)
+- KaTeX rendering engine
+- All common LaTeX environments
+
+#### Chat Commands
+- `/provider ollama` - Switch to Ollama
+- `/provider openai` - Switch to OpenAI
+- `/select <model>` - Choose a model
+- `/models` - List available models
+- `/clear` - Clear chat history
+- `/search <query>` - Web search
+
+## Web Interface Architecture
+
+### Technologies Used
+
+| Library | Purpose | Version |
+|---------|---------|---------|
+| Marked.js | Markdown parsing | Latest |
+| Highlight.js | Code syntax highlighting | 11.9.0 |
+| KaTeX | Math rendering | 0.16.9 |
+| Express.js | Web server | 5.x |
+| WebSocket | Real-time communication | 8.x |
+
+### Message Processing Flow
+
+```
+User sends message
+       ↓
+WebSocket to server
+       ↓
+LLM generates response (with optional MCP tool calls)
+       ↓
+Server streams response back
+       ↓
+Client processes markdown
+       ↓
+Highlight.js highlights code blocks
+       ↓
+KaTeX renders math expressions
+       ↓
+Beautiful formatted message displayed
 ```
 
-For interactive Puter multi-agent mode:
-```bash
-node puter-multi-agent-chat.js --interactive
-```
+### Code Block Enhancement
 
-### Browser-based Puter Interface
+Code blocks are wrapped with:
+- Language label (top-left)
+- Copy button (top-right)
+- Dark theme container
+- Syntax highlighting via Highlight.js
 
-The most effective way to use the Puter API is through the browser-based interface:
+### Math Protection Flow
 
-1. Open `puter-chat-interface.html` in a web browser
-2. Sign in to your Puter account when prompted
-3. Start chatting with AI models
+Math delimiters are protected before markdown processing:
+1. Wrap math in HTML elements (`<div>`, `<span>`)
+2. Process markdown (HTML passes through unchanged)
+3. Render math with KaTeX
+4. Display beautifully formatted equations
 
-## Important Notes about Puter API Integration
+## MCP Integration
 
-The Puter API is designed to work primarily in browser environments. The JavaScript library is loaded via:
+MCP (Model Context Protocol) allows LLMs to use external tools.
 
-```html
-<script src="https://js.puter.com/v2/"></script>
-```
+### Configuration
 
-This provides access to:
-- AI chat capabilities with various models (GPT, Claude, Gemini, etc.)
-- Cloud storage functionality
-- Authentication and user management
-- Serverless workers and other Puter services
-
-The Node.js files (`puter-chat-interface.js` and `puter-multi-agent-chat.js`) are included to demonstrate how the code structure would change when moving from Ollama to Puter APIs, but they will only work in an environment where the Puter API is available (i.e., in the browser with the script loaded).
-
-For a fully functional Puter AI integration, use the HTML version (`puter-chat-interface.html`) which includes the Puter.js library and handles authentication properly.
-
-## Prerequisites
-
-- For Ollama: Ollama must be installed and running locally with compatible models
-- For Puter: A Puter account is required (free tier available at https://puter.com)
-
-## Development Conventions
-
-- Uses ES modules (`"type": "module"` in package.json)
-- Async/await for handling promises
-- Modern JavaScript syntax with top-level await
-- Direct API calls to either Ollama or Puter based on the specific example
-
-## Project Purpose
-
-This project serves as an example of how to integrate with different AI APIs using JavaScript. It demonstrates:
-- Basic chat completion requests
-- Streaming responses
-- Multi-agent conversations
-- Error handling
-- Usage of different models from different providers
-- MCP (Model Context Protocol) integration for enhanced tool calling capabilities
-
-## MCP (Model Context Protocol) Integration
-
-This project includes MCP integration that allows LLMs to connect to external tools and data sources. The MCP integration enables:
-
-- **Tool Discovery**: Automatically discovers available tools from configured MCP servers
-- **Tool Execution**: Executes external tools and incorporates results into LLM responses
-- **Multi-turn Conversations**: Supports complex interactions requiring multiple tool calls
-- **Multiple Transport Types**: Supports stdio, SSE, and StreamableHTTP transports
-
-### MCP Configuration
-
-MCP servers are configured in `mcp-config.json`:
+Edit `mcp-config.json`:
 
 ```json
 {
@@ -145,24 +210,129 @@ MCP servers are configured in `mcp-config.json`:
     "time-server": {
       "command": "node",
       "args": ["/path/to/time-server/build/index.js"],
-      "type": "stdio",
-      "env": {}
+      "type": "stdio"
     }
   }
 }
 ```
 
-### Supported Transport Types
+### Supported Transports
 
-- **Stdio**: For local MCP servers that communicate via stdin/stdout
-- **SSE**: For remote MCP servers using Server-Sent Events
-- **StreamableHTTP**: For remote MCP servers using streaming HTTP
+- **Stdio** - Local servers (stdin/stdout)
+- **SSE** - Remote servers (Server-Sent Events)
+- **StreamableHTTP** - Remote servers (streaming HTTP)
 
 ### Tool Calling Flow
 
-1. LLM receives user input and decides to call a tool
-2. Tool is executed on the appropriate MCP server
-3. Tool result is returned to the LLM
-4. LLM generates final response incorporating tool result
+1. LLM decides to call a tool
+2. Tool executes on MCP server
+3. Result returned to LLM
+4. LLM incorporates results into response
 
-Example: When asking "What time is it?", the LLM can call the `get_time` tool and receive a response like "The current time is **2:28 PM** (Asia/Shanghai timezone)."
+## Testing
+
+### Quick Tests
+
+1. **Code highlighting**: Open `http://localhost:3075/test-code-highlight.html`
+2. **Math rendering**: Open `http://localhost:3075/test-math.html`
+3. **Highlight.js standalone**: Open `http://localhost:3075/test-highlight-standalone.html`
+
+### Live Chat Tests
+
+Open `http://localhost:3075` and try:
+
+```
+Write a JavaScript function to calculate Fibonacci numbers
+```
+
+```
+Explain the quadratic formula with equations
+```
+
+```
+Show me a Python script to read a CSV file
+```
+
+## Browser Console Debugging
+
+Open browser console (F12) to see:
+
+```
+Highlight.js loaded with 22 languages
+Marked.js configured with Highlight.js
+KaTeX loaded
+```
+
+Check Highlight.js status:
+
+```javascript
+// List available languages
+hljs.listLanguages()
+
+// Test highlighting
+hljs.highlight('function test() { return 42; }', { language: 'javascript' })
+```
+
+## Troubleshooting
+
+### Code not highlighted?
+
+1. Open browser console (F12)
+2. Check for "Highlight.js loaded" message
+3. Verify language module is loaded
+4. Check if language is in `hljs.listLanguages()`
+
+### Math not rendering?
+
+1. Check console for KaTeX errors
+2. Verify delimiters are properly paired
+3. Check Network tab for KaTeX CDN loading
+4. Test with simple: `$E = mc^2$`
+
+### Copy button not working?
+
+1. Clipboard API requires HTTPS or localhost
+2. Check browser console for errors
+3. Verify browser supports Clipboard API
+
+### Server won't start?
+
+```bash
+# Check if port is in use
+lsof -i :3075
+
+# Kill existing process
+pkill -f "web-interface.js"
+
+# Restart
+node web-interface.js
+```
+
+## Dependencies
+
+### Production
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| express | ^5.2.1 | Web server |
+| ws | ^8.18.3 | WebSocket server |
+| ollama | ^0.5.11 | Ollama API client |
+| openai | ^4.0.0 | OpenAI API client |
+| axios | ^1.13.2 | HTTP client |
+| dotenv | ^17.2.3 | Environment variables |
+
+### CDN (Frontend)
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| marked | latest | Markdown parsing |
+| highlight.js | 11.9.0 | Syntax highlighting |
+| katex | 0.16.9 | Math rendering |
+
+## License
+
+ISC
+
+## Contributing
+
+Feel free to submit issues and enhancement requests!

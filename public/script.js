@@ -12,17 +12,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentModelSpan = document.getElementById('current-model');
     const connectionStatus = document.getElementById('connection-status');
     const typingIndicator = document.getElementById('typing-indicator');
-    
+
     // WebSocket connection
     let ws;
     let chatHistory = [];
-    
+
     // Auto-resize textarea
     messageInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 150) + 'px';
     });
-    
+
     // Toggle dropdown visibility
     function toggleDropdown(dropdown) {
         const isVisible = dropdown.classList.contains('show');
@@ -31,13 +31,68 @@ document.addEventListener('DOMContentLoaded', () => {
             dropdown.classList.add('show');
         }
     }
-    
+
     // Close dropdowns when clicking outside
     window.onclick = function(event) {
         if (!event.target.matches('#provider-select-btn') && !event.target.matches('#model-select-btn') &&
             !event.target.parentElement?.matches('#provider-select-btn') && !event.target.parentElement?.matches('#model-select-btn')) {
             document.querySelectorAll('.dropdown-content').forEach(dd => dd.classList.remove('show'));
         }
+    }
+
+    // Configure Marked.js with Highlight.js
+    if (typeof marked !== 'undefined' && typeof hljs !== 'undefined') {
+        // Register languages explicitly with Highlight.js core
+        const languages = [
+            'javascript', 'typescript', 'python', 'bash', 'shell',
+            'json', 'css', 'xml', 'sql', 'java', 'cpp', 'c', 'csharp',
+            'go', 'rust', 'ruby', 'php', 'yaml', 'markdown', 'plaintext',
+            'http', 'dockerfile'
+        ];
+
+        console.log(`Highlight.js loaded with ${languages.length} languages`);
+
+        // Configure marked to use highlight.js
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (!code) return '';
+                
+                // If language specified, use it
+                if (lang && hljs.getLanguage(lang)) {
+                    try {
+                        const result = hljs.highlight(code, { language: lang, ignoreIllegals: true });
+                        return result.value;
+                    } catch (err) {
+                        console.warn(`Highlight.js error for ${lang}:`, err.message);
+                    }
+                }
+                
+                // Auto-detect if no language or detection failed
+                if (!lang) {
+                    try {
+                        const result = hljs.highlightAuto(code);
+                        if (result.relevance > 0) {
+                            return result.value;
+                        }
+                    } catch (err) {
+                        // Fall through
+                    }
+                }
+                
+                // Fall back to plaintext with basic escaping
+                return code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            },
+            breaks: true,
+            gfm: true,
+            headerIds: false,
+            mangle: false,
+            sanitize: false,
+            smartLists: true,
+            smartypants: true,
+            xhtml: false
+        });
+        
+        console.log('Marked.js configured with Highlight.js');
     }
     
     // Connect to WebSocket
@@ -154,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function addToChatLog(role, content) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message');
-        
+
         if (role === 'user') {
             messageDiv.classList.add('user-message');
             messageDiv.innerHTML = `<strong>You:</strong><br>${formatMessage(content)}`;
@@ -163,35 +218,211 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (role === 'assistant') {
             messageDiv.classList.add('assistant-message');
             messageDiv.innerHTML = `<strong>Assistant:</strong><div class="markdown-content">${formatMessage(content)}</div>`;
+            
+            // Enhance code blocks with copy buttons and language labels
+            const markdownContent = messageDiv.querySelector('.markdown-content');
+            if (markdownContent) {
+                enhanceCodeBlocks(markdownContent);
+                // Render math in the newly added message
+                renderMathInElement(markdownContent);
+            }
         } else if (role === 'system') {
             messageDiv.classList.add('system-message');
             messageDiv.textContent = content;
         }
-        
+
         messagesDiv.appendChild(messageDiv);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Enhance code blocks with copy buttons and language labels
+    function enhanceCodeBlocks(container) {
+        const codeBlocks = container.querySelectorAll('pre code');
+        
+        codeBlocks.forEach((codeEl, index) => {
+            const preEl = codeEl.parentElement;
+            if (!preEl || preEl.classList.contains('enhanced')) return;
+            
+            // Mark as enhanced to prevent double-processing
+            preEl.classList.add('enhanced');
+            
+            // Detect language from class
+            const langClass = codeEl.className.match(/language-(\w+)/);
+            const lang = langClass ? langClass[1] : 'text';
+            
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-block-wrapper';
+            
+            // Create header bar
+            const header = document.createElement('div');
+            header.className = 'code-block-header';
+            header.innerHTML = `
+                <span class="code-lang-label">${lang}</span>
+                <button class="copy-code-btn" data-code-index="${index}" title="Copy to clipboard">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/>
+                        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/>
+                    </svg>
+                    Copy
+                </button>
+            `;
+            
+            // Wrap the pre element
+            preEl.parentNode.insertBefore(wrapper, preEl);
+            wrapper.appendChild(header);
+            wrapper.appendChild(preEl);
+            
+            // Add copy functionality
+            const copyBtn = header.querySelector('.copy-code-btn');
+            copyBtn.addEventListener('click', async () => {
+                const code = codeEl.textContent;
+                try {
+                    await navigator.clipboard.writeText(code);
+                    copyBtn.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+                        </svg>
+                        Copied!
+                    `;
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => {
+                        copyBtn.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/>
+                                <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/>
+                            </svg>
+                            Copy
+                        `;
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy code:', err);
+                    copyBtn.textContent = 'Failed';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/>
+                                <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/>
+                            </svg>
+                            Copy
+                        `;
+                    }, 2000);
+                }
+            });
+        });
     }
     
     // Format message content using marked.js for markdown rendering
     function formatMessage(text) {
         if (!text) return '';
 
-        // Configure marked options
-        marked.setOptions({
-            breaks: true,        // Convert single newlines to <br>
-            gfm: true,          // GitHub Flavored Markdown
-            headerIds: false,   // Don't add IDs to headers
-            mangle: false,      // Don't mangle email addresses
-            sanitize: false,    // We'll use DOMPurify or manual sanitization
-            smartLists: true,   // Use smarter list behavior
-            smartypants: true,  // Use smart punctuation
-            xhtml: false        // Don't close empty tags with />
-        });
+        // Protect math delimiters before markdown processing
+        const protectedText = protectMathDelimiters(text);
 
         // Render markdown to HTML using marked
-        let html = marked.parse(text);
+        let html = marked.parse(protectedText);
+
+        // Restore math delimiters after markdown processing
+        html = restoreMathDelimiters(html);
 
         return html;
+    }
+
+    // Protect math delimiters from markdown processing by wrapping in HTML
+    function protectMathDelimiters(text) {
+        // Wrap \begin{...}...\end{...} environments in div
+        text = text.replace(/(\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\})/g, '<div class="math-tex">$1</div>');
+        
+        // Wrap \[...\] blocks in div (block math)
+        text = text.replace(/\\\[(\n?[\s\S]*?\n?)\\\]/g, '<div class="math-tex">\\[$1\\]</div>');
+        
+        // Wrap \(...\) in span (inline math)
+        text = text.replace(/\\\(([\s\S]*?)\\\)/g, '<span class="math-tex-inline">\\($1\\)</span>');
+        
+        // Wrap $$...$$ blocks in div
+        text = text.replace(/\$\$(\n?[\s\S]*?\n?)\$\$/g, '<div class="math-tex">$$\\[$1\\]$$</div>');
+        
+        // Wrap $...$ inline math in span
+        text = text.replace(/\$([^\$\n]+?)\$/g, '<span class="math-tex-inline">\\($1\\)</span>');
+        
+        // Also handle bare [..] blocks (common AI output without backslashes)
+        // More flexible - doesn't require trailing newline
+        text = text.replace(/\n\[(\n[\s\S]*?\n)\](\n|$)/g, '\n<div class="math-tex">\\[$1\\]</div>$2');
+        
+        return text;
+    }
+
+    // Restore math delimiters after markdown processing
+    function restoreMathDelimiters(text) {
+        // The HTML tags protect the math, so we just need to ensure proper formatting
+        // No restoration needed as the math is already in the correct format inside the HTML
+        return text;
+    }
+
+    // Render KaTeX math in the message content
+    function renderMathInElement(element) {
+        // Check if KaTeX is available
+        if (typeof window.katex === 'undefined') {
+            console.warn('KaTeX not loaded');
+            return;
+        }
+
+        try {
+            // Render block math elements
+            const blockMathElements = element.querySelectorAll('.math-tex');
+            blockMathElements.forEach(mathEl => {
+                try {
+                    const texContent = mathEl.textContent;
+                    // Remove delimiters if present
+                    let tex = texContent
+                        .replace(/^\\\[/, '').replace(/\\\]$/, '')
+                        .replace(/^\$\$/, '').replace(/\$\$$/, '');
+                    
+                    // Render as display math
+                    const rendered = window.katex.renderToString(tex.trim(), {
+                        displayMode: true,
+                        throwOnError: false,
+                        trust: true
+                    });
+                    
+                    // Replace content with rendered math
+                    mathEl.outerHTML = `<div class="math-block">${rendered}</div>`;
+                } catch (err) {
+                    console.error('Error rendering block math:', err);
+                    mathEl.classList.add('math-error');
+                    mathEl.textContent = `Math Error: ${err.message}`;
+                }
+            });
+
+            // Render inline math elements
+            const inlineMathElements = element.querySelectorAll('.math-tex-inline');
+            inlineMathElements.forEach(mathEl => {
+                try {
+                    const texContent = mathEl.textContent;
+                    // Remove delimiters if present
+                    let tex = texContent
+                        .replace(/^\\\(/, '').replace(/\\\)$/, '')
+                        .replace(/^\$/, '').replace(/\$$/, '');
+                    
+                    // Render as inline math
+                    const rendered = window.katex.renderToString(tex.trim(), {
+                        displayMode: false,
+                        throwOnError: false,
+                        trust: true
+                    });
+                    
+                    // Replace content with rendered math
+                    mathEl.outerHTML = `<span class="math-inline">${rendered}</span>`;
+                } catch (err) {
+                    console.error('Error rendering inline math:', err);
+                    mathEl.classList.add('math-error');
+                    mathEl.textContent = `Math Error: ${err.message}`;
+                }
+            });
+        } catch (err) {
+            console.error('Error in renderMathInElement:', err);
+        }
     }
 
     // Function to escape HTML entities to prevent XSS
@@ -218,6 +449,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const newRawText = currentRawText + content;
                     markdownContent.dataset.rawText = newRawText;
                     markdownContent.innerHTML = formatMessage(newRawText);
+                    
+                    // Enhance code blocks and render math in the updated content
+                    enhanceCodeBlocks(markdownContent);
+                    renderMathInElement(markdownContent);
                 } else {
                     // Fallback: create markdown-content div
                     const newContent = document.createElement('div');
@@ -225,6 +460,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     newContent.dataset.rawText = content;
                     newContent.innerHTML = formatMessage(content);
                     lastMessage.appendChild(newContent);
+                    
+                    // Enhance code blocks and render math in the new content
+                    enhanceCodeBlocks(newContent);
+                    renderMathInElement(newContent);
                 }
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }

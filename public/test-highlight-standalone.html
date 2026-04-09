@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highlight.js Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h2 { margin-top: 0; }
+        
+        /* Code block styles */
+        pre {
+            margin: 12px 0;
+            padding: 16px;
+            background-color: #0d1117;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        pre code {
+            display: block;
+            background-color: transparent;
+            font-family: 'Courier New', monospace;
+            color: #c9d1d9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Highlight.js Syntax Highlighting Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Direct Highlight.js</h2>
+        <div id="direct-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Via Marked.js</h2>
+        <div id="marked-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Console Output</h2>
+        <pre id="console-output" style="background: #1e1e1e; color: #0f0; padding: 20px; border-radius: 8px;"></pre>
+    </div>
+
+    <script>
+        const log = [];
+        function testLog(msg) {
+            log.push(msg);
+            document.getElementById('console-output').textContent = log.join('\n');
+        }
+        
+        window.addEventListener('load', () => {
+            // Check if hljs loaded
+            if (typeof hljs === 'undefined') {
+                testLog('❌ Highlight.js NOT loaded!');
+                return;
+            }
+            testLog('✓ Highlight.js loaded');
+            
+            // Check available languages
+            const langs = hljs.listLanguages();
+            testLog(`✓ Available languages: ${langs.join(', ')}`);
+            
+            // Test 1: Direct highlight
+            const jsCode = `function fibonacci(n) {
+    if (n <= 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+// Test the function
+for (let i = 0; i < 10; i++) {
+    console.log(\`F(\${i}) = \${fibonacci(i)}\`);
+}`;
+            
+            try {
+                const highlighted = hljs.highlight(jsCode, { language: 'javascript' });
+                testLog(`✓ JavaScript highlighted successfully`);
+                testLog(`  Detected language: ${highlighted.language} (relevance: ${highlighted.relevance})`);
+                
+                const directDiv = document.getElementById('direct-test');
+                directDiv.innerHTML = `
+                    <pre><code class="language-javascript">${highlighted.value}</code></pre>
+                `;
+            } catch (err) {
+                testLog(`❌ Highlight error: ${err.message}`);
+            }
+            
+            // Test 2: Via Marked.js
+            if (typeof marked === 'undefined') {
+                testLog('❌ Marked.js NOT loaded!');
+                return;
+            }
+            testLog('✓ Marked.js loaded');
+            
+            // Configure marked
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            const result = hljs.highlight(code, { language: lang, ignoreIllegals: true });
+                            testLog(`✓ Marked highlight: ${lang}`);
+                            return result.value;
+                        } catch (err) {
+                            testLog(`❌ Marked highlight error: ${err.message}`);
+                        }
+                    }
+                    return code;
+                },
+                gfm: true,
+                breaks: true
+            });
+            
+            const markdownWithCode = `
+# Python Example
+
+Here's a Python function:
+
+\`\`\`python
+def read_csv(filename):
+    """Read a CSV file and return data"""
+    import csv
+    
+    data = []
+    with open(filename, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            data.append(dict(row))
+    
+    return data
+
+# Usage
+result = read_csv('data.csv')
+print(result)
+\`\`\`
+`;
+            
+            const markedDiv = document.getElementById('marked-test');
+            markedDiv.innerHTML = marked.parse(markdownWithCode);
+        });
+    </script>
+</body>
+</html>

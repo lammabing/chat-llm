@@ -198,58 +198,181 @@ header h1 {
 }
 
 /* Code blocks */
-.code-block-container {
-    margin: 10px 0;
-    overflow-x: auto;
-}
-
-.code-block {
-    background-color: #f4f4f4;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 10px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
-    overflow-x: auto;
-    white-space: pre-wrap; /* Preserves both spaces and newlines */
-    word-wrap: break-word;
-}
-
-.code-block code {
-    background: none;
-    color: #333;
-    padding: 0;
-}
-
-/* Inline code */
-.message code {
-    background-color: rgba(27, 31, 35, 0.05);
-    border-radius: 3px;
-    font-size: 85%;
-    margin: 0;
-    padding: 0.2em 0.4em;
-    font-family: 'Courier New', monospace;
-}
-
-.message pre {
-    background-color: #f6f8fa;
-    border-radius: 6px;
-    font-size: 85%;
-    line-height: 1.45;
-    overflow: auto;
-    padding: 16px;
+.code-block-wrapper {
     margin: 12px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+}
+
+.code-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #161b22;
+    border-bottom: 1px solid #30363d;
+}
+
+.code-lang-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.copy-code-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background-color: transparent;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #8b949e;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.copy-code-btn:hover {
+    background-color: #21262d;
+    border-color: #8b949e;
+    color: #c9d1d9;
+}
+
+.copy-code-btn.copied {
+    background-color: #238636;
+    border-color: #238636;
+    color: #ffffff;
+}
+
+.copy-code-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Pre blocks - let Highlight.js handle colors */
+.message pre {
+    margin: 0;
+    padding: 16px;
+    background-color: #0d1117;
+    border-radius: 0;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
 }
 
 .message pre code {
-    background-color: transparent;
+    display: block;
+    background-color: transparent !important;
     border: 0;
-    display: inline;
-    line-height: inherit;
+    line-height: 1.5;
     margin: 0;
     overflow: visible;
     padding: 0;
     word-wrap: normal;
+    font-family: 'Courier New', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: inherit;
+    color: #c9d1d9;
+}
+
+/* Highlight.js syntax colors - ensure they're not overridden */
+.message pre code .hljs {
+    background: transparent !important;
+    color: #c9d1d9;
+}
+
+.message pre code .hljs-comment,
+.message pre code .hljs-quote {
+    color: #8b949e;
+    font-style: italic;
+}
+
+.message pre code .hljs-keyword,
+.message pre code .hljs-selector-tag,
+.message pre code .hljs-subst {
+    color: #ff7b72;
+}
+
+.message pre code .hljs-number,
+.message pre code .hljs-literal,
+.message pre code .hljs-variable,
+.message pre code .hljs-template-variable,
+.message pre code .hljs-tag .hljs-attr {
+    color: #79c0ff;
+}
+
+.message pre code .hljs-string,
+.message pre code .hljs-doctag {
+    color: #a5d6ff;
+}
+
+.message pre code .hljs-title,
+.message pre code .hljs-section,
+.message pre code .hljs-selector-id {
+    color: #d2a8ff;
+    font-weight: bold;
+}
+
+.message pre code .hljs-subst {
+    font-weight: normal;
+}
+
+.message pre code .hljs-type,
+.message pre code .hljs-class .hljs-title {
+    color: #ffa657;
+}
+
+.message pre code .hljs-tag,
+.message pre code .hljs-name,
+.message pre code .hljs-attribute {
+    color: #7ee787;
+}
+
+.message pre code .hljs-regexp,
+.message pre code .hljs-link {
+    color: #7ee787;
+}
+
+.message pre code .hljs-symbol,
+.message pre code .hljs-bullet {
+    color: #f2cc60;
+}
+
+.message pre code .hljs-built_in,
+.message pre code .hljs-builtin-name {
+    color: #ffa657;
+}
+
+.message pre code .hljs-meta {
+    color: #8b949e;
+}
+
+.message pre code .hljs-deletion {
+    background: rgba(248, 81, 73, 0.2);
+}
+
+.message pre code .hljs-addition {
+    background: rgba(63, 185, 80, 0.2);
+}
+
+/* Inline code (not in pre blocks) */
+.message code {
+    background-color: rgba(175, 184, 193, 0.2);
+    border-radius: 6px;
+    font-size: 85%;
+    margin: 0;
+    padding: 0.2em 0.4em;
+    font-family: 'Courier New', 'Fira Code', 'Cascadia Code', monospace;
+    color: #db61a2;
+}
+
+.message :not(pre) > code {
+    background-color: rgba(175, 184, 193, 0.2);
+    color: #db61a2;
 }
 
 .markdown-table {
@@ -273,6 +396,41 @@ header h1 {
 
 .markdown-table tr:nth-child(even) {
     background-color: #f9f9f9;
+}
+
+/* KaTeX math rendering styles */
+.message .katex {
+    font-size: 1em;
+    line-height: 1.2;
+}
+
+.message .katex-display {
+    margin: 12px 0;
+    padding: 8px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.message .katex-error {
+    color: #d73a49;
+    background-color: #ffeef0;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+/* Ensure inline math doesn't break line height */
+.message .katex-inline {
+    margin: 0 2px;
+}
+
+/* Block math styling */
+.math-block {
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 12px 0;
+    overflow-x: auto;
 }
 
 @keyframes fadeIn {

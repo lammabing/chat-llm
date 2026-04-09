@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Rendering Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-case {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .katex-display {
+            margin: 12px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mathematical Notation Rendering Test</h1>
+    
+    <div class="test-case">
+        <h2>Inline Math: $E = mc^2$</h2>
+        <p>This shows inline math: $E = mc^2$</p>
+    </div>
+    
+    <div class="test-case">
+        <h2>Display Math:</h2>
+        <div id="display-math-test">
+            $$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
+        </div>
+    </div>
+    
+    <div class="test-case">
+        <h2>Complex Equation:</h2>
+        <div id="complex-math-test">
+            $$\frac{\partial^2 u}{\partial t^2} = c^2 \nabla^2 u$$
+        </div>
+    </div>
+    
+    <div class="test-case">
+        <h2>Markdown with Math:</h2>
+        <div id="markdown-math-test"></div>
+    </div>
+    
+    <div class="test-case">
+        <h2>Quadratic Formula (Real Example):</h2>
+        <div id="quadratic-formula-test"></div>
+    </div>
+
+    <script>
+        function renderMath() {
+            if (typeof renderMathInElement === 'function') {
+                document.querySelectorAll('.test-case > div').forEach(el => {
+                    renderMathInElement(el, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\(', right: '\\)', display: false},
+                            {left: '\\[', right: '\\]', display: true}
+                        ],
+                        throwOnError: false
+                    });
+                });
+            }
+        }
+        
+        // Test markdown with math - matching actual AI output format
+        const markdownContent = `
+# Pythagorean Theorem
+
+The famous equation: $a^2 + b^2 = c^2$
+
+## Quadratic Formula
+
+The standard way to find the roots of a quadratic equation
+
+\[
+ax^{2}+bx+c=0 \qquad (a\neq 0)
+\]
+
+is the quadratic formula:
+
+\[
+x=\frac{-b \pm \sqrt{b^{2}-4ac}}{2a}
+\]
+
+### Discriminant
+
+\[
+\Delta = b^{2}-4ac
+\]
+
+The discriminant tells you the nature of the roots:
+- $\Delta > 0$ – two distinct real roots
+- $\Delta = 0$ – one double real root, $x = -\frac{b}{2a}$
+- $\Delta < 0$ – two complex conjugate roots
+`;
+        
+        // Quadratic formula example matching user's exact format
+        const quadraticContent = `
+The standard way to find the roots (solutions) of a quadratic equation
+
+\[
+ax^{2}+bx+c=0 \qquad (a\neq 0)
+\]
+
+is the quadratic formula:
+
+\[
+\boxed{x=\frac{-b \pm \sqrt{b^{2}-4ac}}{2a}}
+\]
+
+How it works
+
+### Discriminant
+
+\[
+\Delta = b^{2}-4ac
+\]
+
+The discriminant tells you the nature of the roots:
+- $\Delta > 0$ – two distinct real roots.
+- $\Delta = 0$ – one (double) real root, $x = -\frac{b}{2a}$.
+- $\Delta < 0$ – two complex conjugate roots.
+
+### Example
+
+Solve $2x^{2} - 3x - 2 = 0$.
+
+1. $a = 2, b = -3, c = -2$
+2. Discriminant: $\Delta = (-3)^{2} - 4(2)(-2) = 9 + 16 = 25$
+3. Roots:
+
+\[
+x = \frac{-(-3) \pm \sqrt{25}}{2\cdot 2} = \frac{3 \pm 5}{4}
+\]
+
+- $x_{1} = \frac{3 + 5}{4} = 2$
+- $x_{2} = \frac{3 - 5}{4} = -\frac{1}{2}$
+`;
+        
+        window.addEventListener('load', () => {
+            const markdownDiv = document.getElementById('markdown-math-test');
+            const quadraticDiv = document.getElementById('quadratic-formula-test');
+            
+            if (typeof marked !== 'undefined') {
+                markdownDiv.innerHTML = marked.parse(markdownContent);
+                quadraticDiv.innerHTML = marked.parse(quadraticContent);
+            }
+            
+            renderMath();
+        });
+    </script>
+</body>
+</html>
