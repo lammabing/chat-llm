@@ -4,18 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ollama Chat Interface</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="app">
-        <header>
-            <h1>Ollama Chat Interface</h1>
-            <div id="provider-info">
-                <span>Provider: <span id="current-provider">ollama</span></span>
-                | 
-                <span>Model: <span id="current-model">gpt-oss:120b-cloud</span></span>
+        <div id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h2>Chat Sessions</h2>
+                <button id="new-session-btn" title="New Chat">+</button>
             </div>
-        </header>
+            <div id="sessions-list" class="sessions-list">
+                <!-- Sessions will be loaded here dynamically -->
+                <div class="loading-sessions">Loading sessions...</div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="session-stats-btn" title="View Stats">Stats</button>
+            </div>
+        </div>
+        
+        <div id="main-content">
+            <header>
+                <button id="toggle-sidebar-btn" class="toggle-sidebar-btn">☰</button>
+                <h1>Ollama Chat Interface</h1>
+                <div id="provider-info">
+                    <span>Provider: <span id="current-provider">ollama</span></span>
+                    |
+                    <span>Model: <span id="current-model">gpt-oss:120b-cloud</span></span>
+                </div>
+            </header>
         
         <div id="controls">
             <button id="clear-history-btn">Clear History</button>
@@ -50,7 +67,9 @@
         <div id="status-bar">
             <span id="connection-status">Connecting...</span>
             <span id="typing-indicator" style="display: none;">Assistant is typing...</span>
+            <span id="session-info" class="session-info"></span>
         </div>
+        </div><!-- end main-content -->
     </div>
     
     <!-- Marked.js for Markdown rendering -->

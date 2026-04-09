@@ -9,6 +9,7 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import { createMCPClientManager } from './lib/mcp/client-manager.js';
 import { createLLMIntegration } from './lib/mcp/llm-integration.js';
+import { getSessionManager } from './lib/session-manager.js';
 dotenv.config();
 
 // Define __dirname for ES modules
@@ -47,6 +48,17 @@ const config = {
 };
 
 let openaiClient = null;
+
+// Initialize SessionManager for persistent chat sessions
+let sessionManager = null;
+try {
+  sessionManager = getSessionManager();
+  console.log('✅ SessionManager initialized for persistent chat sessions');
+} catch (error) {
+  console.error('⚠️  Failed to initialize SessionManager:', error.message);
+  console.log('Chat sessions will not be persisted');
+  sessionManager = null;
+}
 
 // Initialize OpenAI client if API key is provided
 if (config.openaiApiKey) {
@@ -163,6 +175,25 @@ wss.on('connection', (ws) => {
         case 'clear_history':
           handleClearHistory(ws, message);
           break;
+        // Session management handlers
+        case 'create_session':
+          handleCreateSession(ws, message);
+          break;
+        case 'load_session':
+          handleLoadSession(ws, message);
+          break;
+        case 'list_sessions':
+          handleListSessions(ws, message);
+          break;
+        case 'delete_session':
+          handleDeleteSession(ws, message);
+          break;
+        case 'update_session':
+          handleUpdateSession(ws, message);
+          break;
+        case 'session_stats':
+          handleSessionStats(ws, message);
+          break;
         // MCP-related message handlers
         case 'mcp_connect':
           await handleMCPConnect(ws, message);
@@ -205,10 +236,24 @@ wss.on('connection', (ws) => {
 
 // Function to handle chat messages
 async function handleChatMessage(ws, message) {
-  const { userMessage, chatHistory } = message;
+  const { userMessage, chatHistory, sessionId } = message;
 
   // Add user message to chat history
   const updatedChatHistory = [...chatHistory, { role: 'user', content: userMessage }];
+
+  // Save user message to session if sessionId provided
+  if (sessionManager && sessionId) {
+    try {
+      sessionManager.saveMessage(sessionId, {
+        role: 'user',
+        content: userMessage,
+        provider: config.provider,
+        model: config.provider === 'ollama' ? config.ollamaModel : config.openaiModel
+      });
+    } catch (error) {
+      console.error('Error saving user message to session:', error.message);
+    }
+  }
 
   // Send message to client indicating response is starting
   ws.send(JSON.stringify({
@@ -496,8 +541,23 @@ async function handleChatMessage(ws, message) {
     // Send final response to client
     ws.send(JSON.stringify({
       type: 'response_complete',
-      content: fullResponse
+      content: fullResponse,
+      sessionId: sessionId // Echo back the session ID
     }));
+
+    // Save assistant response to session if sessionId provided
+    if (sessionManager && sessionId && fullResponse) {
+      try {
+        sessionManager.saveMessage(sessionId, {
+          role: 'assistant',
+          content: fullResponse,
+          provider: config.provider,
+          model: config.provider === 'ollama' ? config.ollamaModel : config.openaiModel
+        });
+      } catch (error) {
+        console.error('Error saving assistant message to session:', error.message);
+      }
+    }
 
   } catch (error) {
     console.error('Error in chat processing:', error);
@@ -677,6 +737,247 @@ function handleClearHistory(ws) {
     type: 'history_cleared',
     message: 'Conversation history cleared'
   }));
+}
+
+// ============================================================
+// Session Management Handlers
+// ============================================================
+
+// Create a new chat session
+function handleCreateSession(ws, message) {
+  if (!sessionManager) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Session manager not available'
+    }));
+    return;
+  }
+
+  try {
+    const { title, provider, model } = message || {};
+    const session = sessionManager.createSession({
+      title: title || 'New Chat',
+      provider: provider || config.provider,
+      model: model || (config.provider === 'ollama' ? config.ollamaModel : config.openaiModel)
+    });
+
+    ws.send(JSON.stringify({
+      type: 'session_created',
+      session: {
+        id: session.id,
+        title: session.title,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        provider: session.provider,
+        model: session.model,
+        messageCount: session.messageCount
+      }
+    }));
+
+    console.log(`📝 New session created: ${session.id} - "${session.title}"`);
+  } catch (error) {
+    console.error('Error creating session:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to create session: ${error.message}`
+    }));
+  }
+}
+
+// Load a chat session with all messages
+function handleLoadSession(ws, message) {
+  if (!sessionManager) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Session manager not available'
+    }));
+    return;
+  }
+
+  try {
+    const { sessionId } = message;
+    if (!sessionId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID is required'
+      }));
+      return;
+    }
+
+    const session = sessionManager.getSession(sessionId);
+    if (!session) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: `Session not found: ${sessionId}`
+      }));
+      return;
+    }
+
+    // Convert messages to chatHistory format
+    const chatHistory = session.messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+    ws.send(JSON.stringify({
+      type: 'session_loaded',
+      session: {
+        id: session.id,
+        title: session.title,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        provider: session.provider,
+        model: session.model,
+        messageCount: session.messageCount
+      },
+      chatHistory: chatHistory
+    }));
+
+    console.log(`📂 Session loaded: ${session.id} - "${session.title}" (${session.messageCount} messages)`);
+  } catch (error) {
+    console.error('Error loading session:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to load session: ${error.message}`
+    }));
+  }
+}
+
+// List all chat sessions
+function handleListSessions(ws, message) {
+  if (!sessionManager) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Session manager not available'
+    }));
+    return;
+  }
+
+  try {
+    const { limit = 50, offset = 0 } = message || {};
+    const sessions = sessionManager.listSessions({ limit, offset });
+
+    ws.send(JSON.stringify({
+      type: 'sessions_list',
+      sessions: sessions,
+      count: sessions.length
+    }));
+  } catch (error) {
+    console.error('Error listing sessions:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to list sessions: ${error.message}`
+    }));
+  }
+}
+
+// Delete a chat session
+function handleDeleteSession(ws, message) {
+  if (!sessionManager) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Session manager not available'
+    }));
+    return;
+  }
+
+  try {
+    const { sessionId } = message;
+    if (!sessionId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID is required'
+      }));
+      return;
+    }
+
+    const deleted = sessionManager.deleteSession(sessionId);
+    if (deleted) {
+      ws.send(JSON.stringify({
+        type: 'session_deleted',
+        sessionId: sessionId
+      }));
+      console.log(`🗑️  Session deleted: ${sessionId}`);
+    } else {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: `Session not found: ${sessionId}`
+      }));
+    }
+  } catch (error) {
+    console.error('Error deleting session:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to delete session: ${error.message}`
+    }));
+  }
+}
+
+// Update session metadata (title, provider, model)
+function handleUpdateSession(ws, message) {
+  if (!sessionManager) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Session manager not available'
+    }));
+    return;
+  }
+
+  try {
+    const { sessionId, updates } = message;
+    if (!sessionId || !updates) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID and updates are required'
+      }));
+      return;
+    }
+
+    const session = sessionManager.updateSession(sessionId, updates);
+    ws.send(JSON.stringify({
+      type: 'session_updated',
+      session: {
+        id: session.id,
+        title: session.title,
+        provider: session.provider,
+        model: session.model,
+        updatedAt: session.updatedAt
+      }
+    }));
+
+    console.log(`✏️  Session updated: ${sessionId}`);
+  } catch (error) {
+    console.error('Error updating session:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to update session: ${error.message}`
+    }));
+  }
+}
+
+// Get session statistics
+function handleSessionStats(ws, message) {
+  if (!sessionManager) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Session manager not available'
+    }));
+    return;
+  }
+
+  try {
+    const stats = sessionManager.getStats();
+    ws.send(JSON.stringify({
+      type: 'session_stats',
+      stats: stats
+    }));
+  } catch (error) {
+    console.error('Error getting session stats:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to get stats: ${error.message}`
+    }));
+  }
 }
 
 // Function to handle search requests

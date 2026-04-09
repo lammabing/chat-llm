@@ -7,11 +7,13 @@ This project demonstrates how to interact with Ollama and other AI APIs using Ja
 - **Ollama API** - Local language model support
 - **OpenAI-compatible API** - Cloud-based AI models
 - **Web Interface** - Modern chat UI with:
+  - **Persistent sessions** - Save and load conversations (SQLite)
   - Syntax-highlighted code blocks (22+ languages)
   - Mathematical notation rendering (LaTeX/KaTeX)
   - Copy-to-clipboard for code
   - Streaming responses
   - Multi-provider support (Ollama, OpenAI)
+  - Session sidebar for managing chats
 - **MCP Integration** - Model Context Protocol for tool calling
 - **Search Integration** - DuckDuckGo, Tavily, SerpAPI support
 
@@ -53,10 +55,18 @@ This project demonstrates how to interact with Ollama and other AI APIs using Ja
 |------|-------------|
 | `MATH_RENDERING.md` | Math notation support guide |
 | `plans/CODE_HIGHLIGHTING.md` | Code highlighting user guide |
-| `plans/CODE_HIGHLIGHTING_IMPLEMENTATION.md` | Code highlighting technical docs |
 | `plans/MATH_RENDERING_FINAL.md` | Math rendering technical docs |
+| `plans/PERSISTENT_CHAT_SESSIONS.md` | Session storage analysis |
+| `plans/PERSISTENT_SESSIONS_IMPLEMENTATION.md` | Session implementation guide |
 | `PUTER_INTEGRATION.md` | Puter API integration docs |
 | `MULTI_AGENT_CHAT.md` | Multi-agent chat docs |
+
+### Session Management
+
+| File | Description |
+|------|-------------|
+| `lib/session-manager.js` | SQLite session storage class |
+| `chat-sessions.db` | SQLite database (auto-created) |
 
 ## Setup and Installation
 
@@ -124,6 +134,14 @@ npm start
 Then open: **http://localhost:3075**
 
 ### Web Interface Features
+
+#### Persistent Sessions
+- **Auto-save** - Every message saved to SQLite
+- **Session sidebar** - Browse and load previous conversations
+- **Collapsible** - Toggle sidebar with ☰ button
+- **Multi-session** - Create and switch between sessions
+- **Statistics** - View session counts and activity
+- **Persistence** - Survives browser refresh/close
 
 #### Code Syntax Highlighting
 - **22 languages** supported
@@ -261,6 +279,7 @@ Open browser console (F12) to see:
 Highlight.js loaded with 22 languages
 Marked.js configured with Highlight.js
 KaTeX loaded
+✅ SessionManager initialized for persistent chat sessions
 ```
 
 Check Highlight.js status:
@@ -271,6 +290,16 @@ hljs.listLanguages()
 
 // Test highlighting
 hljs.highlight('function test() { return 42; }', { language: 'javascript' })
+```
+
+Check session manager:
+
+```javascript
+// View database file
+// chat-sessions.db in project root
+
+// List sessions via WebSocket
+// Click "Stats" button in sidebar
 ```
 
 ## Troubleshooting
@@ -308,6 +337,19 @@ pkill -f "web-interface.js"
 node web-interface.js
 ```
 
+### Sessions Not Saving?
+
+1. Check console for "SessionManager initialized" message
+2. Verify `chat-sessions.db` exists in project root
+3. Check file permissions on project directory
+4. Verify SQLite module: `npm list better-sqlite3`
+
+### Sidebar Not Showing?
+
+1. Click the ☰ button in the header to toggle sidebar
+2. Check browser console for JavaScript errors
+3. Hard refresh: Ctrl+Shift+R or Cmd+Shift+R
+
 ## Dependencies
 
 ### Production
@@ -320,6 +362,7 @@ node web-interface.js
 | openai | ^4.0.0 | OpenAI API client |
 | axios | ^1.13.2 | HTTP client |
 | dotenv | ^17.2.3 | Environment variables |
+| better-sqlite3 | Latest | SQLite session storage |
 
 ### CDN (Frontend)
 

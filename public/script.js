@@ -12,10 +12,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentModelSpan = document.getElementById('current-model');
     const connectionStatus = document.getElementById('connection-status');
     const typingIndicator = document.getElementById('typing-indicator');
+    const sessionInfo = document.getElementById('session-info');
+    const sessionsList = document.getElementById('sessions-list');
+    const newSessionBtn = document.getElementById('new-session-btn');
+    const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+    const sidebar = document.getElementById('sidebar');
+    const sessionStatsBtn = document.getElementById('session-stats-btn');
 
     // WebSocket connection
     let ws;
     let chatHistory = [];
+    let currentSessionId = null; // Track current session ID
 
     // Auto-resize textarea
     messageInput.addEventListener('input', function() {
@@ -187,6 +194,53 @@ document.addEventListener('DOMContentLoaded', () => {
                     addToChatLog('system', `Error: ${data.message}`);
                     connectionStatus.textContent = `Error: ${data.message}`;
                     connectionStatus.style.color = 'red';
+                    break;
+
+                // Session management messages
+                case 'session_created':
+                    updateSessionInfo(data.session);
+                    loadSessionsList(); // Refresh the list
+                    connectionStatus.textContent = `New session created: ${data.session.title}`;
+                    break;
+
+                case 'session_loaded':
+                    // Clear current chat and load session
+                    clearChatHistory();
+                    updateSessionInfo(data.session);
+                    
+                    // Load messages
+                    if (data.chatHistory && data.chatHistory.length > 0) {
+                        chatHistory = data.chatHistory;
+                        data.chatHistory.forEach(msg => {
+                            addToChatLog(msg.role, msg.content);
+                        });
+                    }
+                    connectionStatus.textContent = `Session loaded: ${data.session.title}`;
+                    break;
+
+                case 'sessions_list':
+                    renderSessionsList(data.sessions);
+                    break;
+
+                case 'session_deleted':
+                    loadSessionsList(); // Refresh the list
+                    if (data.sessionId === currentSessionId) {
+                        updateSessionInfo(null);
+                        clearChatHistory();
+                        chatHistory = [];
+                    }
+                    connectionStatus.textContent = 'Session deleted';
+                    break;
+
+                case 'session_updated':
+                    updateSessionInfo(data.session);
+                    loadSessionsList(); // Refresh the list
+                    connectionStatus.textContent = 'Session updated';
+                    break;
+
+                case 'session_stats':
+                    const stats = data.stats;
+                    alert(`Session Statistics:\n\nTotal Sessions: ${stats.totalSessions}\nTotal Messages: ${stats.totalMessages}\nOldest Session: ${stats.oldestSession}\nNewest Activity: ${stats.newestSession}`);
                     break;
             }
         };
@@ -509,12 +563,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 query: query
             }));
         } else {
-            // Send regular chat message via WebSocket
-            ws.send(JSON.stringify({
-                type: 'chat',
-                userMessage: message,
-                chatHistory: chatHistory
-            }));
+            // If no session, create one automatically
+            if (!currentSessionId) {
+                createNewSession();
+                // Wait a moment for session to be created, then send message
+                setTimeout(() => {
+                    ws.send(JSON.stringify({
+                        type: 'chat',
+                        userMessage: message,
+                        chatHistory: chatHistory,
+                        sessionId: currentSessionId
+                    }));
+                }, 100);
+            } else {
+                // Send regular chat message via WebSocket with session ID
+                ws.send(JSON.stringify({
+                    type: 'chat',
+                    userMessage: message,
+                    chatHistory: chatHistory,
+                    sessionId: currentSessionId
+                }));
+            }
         }
 
         // Clear input
@@ -537,7 +606,107 @@ document.addEventListener('DOMContentLoaded', () => {
             model: model
         }));
     }
-    
+
+    // ============================================================
+    // Session Management Functions
+    // ============================================================
+
+    // Load sessions list from server
+    function loadSessionsList() {
+        ws.send(JSON.stringify({ type: 'list_sessions' }));
+    }
+
+    // Create a new chat session
+    function createNewSession() {
+        ws.send(JSON.stringify({
+            type: 'create_session',
+            title: 'New Chat',
+            provider: currentProviderSpan.textContent,
+            model: currentModelSpan.textContent
+        }));
+    }
+
+    // Load a specific session
+    function loadSession(sessionId) {
+        ws.send(JSON.stringify({ type: 'load_session', sessionId }));
+    }
+
+    // Delete a session
+    function deleteSession(sessionId) {
+        if (confirm('Are you sure you want to delete this chat session?')) {
+            ws.send(JSON.stringify({ type: 'delete_session', sessionId }));
+        }
+    }
+
+    // Render sessions list in sidebar
+    function renderSessionsList(sessions) {
+        if (!sessionsList) return;
+        
+        if (!sessions || sessions.length === 0) {
+            sessionsList.innerHTML = '<div class="loading-sessions">No sessions yet. Start a new chat!</div>';
+            return;
+        }
+
+        sessionsList.innerHTML = '';
+        sessions.forEach(session => {
+            const sessionEl = document.createElement('div');
+            sessionEl.className = 'session-item';
+            if (session.id === currentSessionId) {
+                sessionEl.classList.add('active');
+            }
+            
+            // Format date
+            const date = new Date(session.updatedAt);
+            const dateStr = date.toLocaleDateString();
+            
+            sessionEl.innerHTML = `
+                <div class="session-title">${escapeHtml(session.title)}</div>
+                <div class="session-meta">
+                    <span>${session.messageCount} msgs</span>
+                    <span>${dateStr}</span>
+                </div>
+                <button class="session-delete" title="Delete session">×</button>
+            `;
+
+            // Click to load session
+            sessionEl.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('session-delete')) {
+                    loadSession(session.id);
+                }
+            });
+
+            // Delete button
+            const deleteBtn = sessionEl.querySelector('.session-delete');
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteSession(session.id);
+            });
+
+            sessionsList.appendChild(sessionEl);
+        });
+    }
+
+    // Update session info display
+    function updateSessionInfo(session) {
+        if (sessionInfo) {
+            if (session) {
+                currentSessionId = session.id;
+                sessionInfo.textContent = `Session: ${session.title}`;
+            } else {
+                currentSessionId = null;
+                sessionInfo.textContent = '';
+            }
+        }
+    }
+
+    // Toggle sidebar visibility
+    function toggleSidebar() {
+        sidebar.classList.toggle('collapsed');
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        toggleSidebarBtn.textContent = isCollapsed ? '☰' : '✕';
+        toggleSidebarBtn.title = isCollapsed ? 'Show sessions' : 'Hide sessions';
+    }
+
     // Event listeners
     sendBtn.addEventListener('click', sendMessage);
     
@@ -547,9 +716,24 @@ document.addEventListener('DOMContentLoaded', () => {
             sendMessage();
         }
     });
-    
+
     clearHistoryBtn.addEventListener('click', () => {
         ws.send(JSON.stringify({ type: 'clear_history' }));
+    });
+
+    // New session button
+    newSessionBtn.addEventListener('click', () => {
+        createNewSession();
+    });
+
+    // Toggle sidebar button
+    toggleSidebarBtn.addEventListener('click', () => {
+        toggleSidebar();
+    });
+
+    // Session stats button
+    sessionStatsBtn.addEventListener('click', () => {
+        ws.send(JSON.stringify({ type: 'session_stats' }));
     });
     
     providerSelectBtn.addEventListener('click', (e) => {
