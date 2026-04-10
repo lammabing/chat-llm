@@ -638,6 +638,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Rename a session
+    function renameSession(sessionId, currentTitle) {
+        const newTitle = prompt('Enter new chat name:', currentTitle);
+        if (newTitle && newTitle.trim() && newTitle.trim() !== currentTitle) {
+            ws.send(JSON.stringify({
+                type: 'update_session',
+                sessionId: sessionId,
+                updates: { title: newTitle.trim() }
+            }));
+        }
+    }
+
     // Render sessions list in sidebar
     function renderSessionsList(sessions) {
         if (!sessionsList) return;
@@ -665,14 +677,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>${session.messageCount} msgs</span>
                     <span>${dateStr}</span>
                 </div>
+                <button class="session-rename" title="Rename session">✎</button>
                 <button class="session-delete" title="Delete session">×</button>
             `;
 
             // Click to load session
             sessionEl.addEventListener('click', (e) => {
-                if (!e.target.classList.contains('session-delete')) {
+                if (!e.target.classList.contains('session-delete') && !e.target.classList.contains('session-rename')) {
                     loadSession(session.id);
                 }
+            });
+
+            // Rename button
+            const renameBtn = sessionEl.querySelector('.session-rename');
+            renameBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                renameSession(session.id, session.title);
             });
 
             // Delete button
@@ -691,10 +711,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sessionInfo) {
             if (session) {
                 currentSessionId = session.id;
-                sessionInfo.textContent = `Session: ${session.title}`;
+                sessionInfo.innerHTML = `
+                    <span class="session-info-text">📝 ${escapeHtml(session.title)}</span>
+                    <button class="session-info-rename" title="Rename session">✎</button>
+                `;
+                // Add rename button handler
+                const renameBtn = sessionInfo.querySelector('.session-info-rename');
+                if (renameBtn) {
+                    renameBtn.addEventListener('click', () => {
+                        renameSession(session.id, session.title);
+                    });
+                }
             } else {
                 currentSessionId = null;
-                sessionInfo.textContent = '';
+                sessionInfo.innerHTML = '';
             }
         }
     }
