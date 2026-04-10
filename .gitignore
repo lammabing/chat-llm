@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Environment variables (secrets)
+.env
+
+# Qwen specific file
+QWEN.md
+
+# Generated chat logs
+chat-logs/
+
+# SQLite session database
+chat-sessions.db*
+
+# Test scripts (development only)
+test-*.js

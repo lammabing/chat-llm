@@ -226,7 +226,7 @@ async function interactivePuterMultiAgentChat(config) {
   // Create readline interface for user input
   const rl = readline.createInterface({
     input: process.stdin,
-    output: stdout
+    output: process.stdout
   });
 
   // Promise wrapper for readline question

@@ -6,14 +6,15 @@
       "type": "stdio",
       "autoConnect": true
     },
- "youtube-caption-mcp": {
+    "youtube-caption-mcp": {
       "command": "npx",
       "args": ["-y", "youtube-caption-mcp", "--stdio"],
-      "type" : "stdio",
+      "type": "stdio",
       "env": {
         "CACHE_ENABLED": "true",
         "LOG_LEVEL": "debug"
       }
+    }
   },
   "mcpSettings": {
     "enableToolCalling": true,
@@ -21,6 +22,4 @@
     "allowedTools": [],
     "blockedTools": []
   }
-}
-
 }
