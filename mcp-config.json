@@ -14,6 +14,12 @@
         "CACHE_ENABLED": "true",
         "LOG_LEVEL": "debug"
       }
+    },
+    "code-sandbox": {
+      "command": "node",
+      "args": ["lib/mcp/code-sandbox/index.js"],
+      "type": "stdio",
+      "autoConnect": true
     }
   },
   "mcpSettings": {
