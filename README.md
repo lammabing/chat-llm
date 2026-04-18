@@ -247,6 +247,86 @@ Edit `mcp-config.json`:
 3. Result returned to LLM
 4. LLM incorporates results into response
 
+## Code Sandbox (Docker-based Code Execution)
+
+The code sandbox MCP server enables the LLM to write and execute code in isolated Docker containers.
+
+### Features
+
+- **Isolated execution** - Each sandbox runs in its own Docker container
+- **Multiple languages** - Python, Node.js, and any Docker image
+- **Package installation** - Install npm, pip, apt packages
+- **File operations** - Write files to the sandbox
+- **Resource limits** - Memory and CPU constraints
+- **Auto-cleanup** - Containers removed after execution
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `sandbox_initialize` | Create a new Docker container |
+| `write_file` | Write code files to the container |
+| `sandbox_exec` | Run commands (install packages, execute scripts) |
+| `sandbox_stop` | Stop and remove the container |
+| `list_containers` | List active sandbox containers |
+
+### Supported Languages & Images
+
+```python
+# Python (default)
+image: "python:3.12-slim-bookworm"
+
+# Node.js
+image: "node:18-slim"
+
+# Or any other Docker image
+image: "ruby:3-slim"
+```
+
+### Usage Examples
+
+#### Python Code Execution
+
+```
+Create a Python script that calculates Fibonacci numbers and run it
+```
+
+The LLM will:
+1. Initialize a Python container
+2. Write the Fibonacci script
+3. Execute it with `python`
+4. Return the results
+
+#### Node.js Code Execution
+
+```
+Create a Node.js script that fetches from an API and runs it
+```
+
+#### Package Installation
+
+```
+Install the numpy package and create a script that does matrix multiplication
+```
+
+### Prerequisites
+
+- **Docker** - Must be installed and running
+- **dockerode** - NPM package (auto-installed)
+
+### Pre-pulled Images
+
+For faster first-run, images are pre-pulled:
+- `python:3.12-slim-bookworm`
+- `node:18-slim`
+
+### Security
+
+- Containers run in isolated Docker environment
+- Resource limits applied (512MB memory, 1 CPU)
+- Auto-remove enabled for cleanup
+- No host access from within containers
+
 ## Testing
 
 ### Quick Tests
