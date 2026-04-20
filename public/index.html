@@ -36,6 +36,7 @@
         
         <div id="controls">
             <button id="clear-history-btn">Clear History</button>
+            <button id="system-prompt-btn">System Prompt</button>
             <div class="dropdown-container">
                 <button id="provider-select-btn">Provider: ollama</button>
                 <div id="provider-dropdown" class="dropdown-content">
@@ -47,6 +48,24 @@
                 <button id="model-select-btn">Select Model</button>
                 <div id="model-dropdown" class="dropdown-content">
                     <!-- Models will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Prompt Modal -->
+        <div id="system-prompt-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>System Prompt</h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p class="help-text">Enter a custom system prompt to override the default. Leave empty to use the default.</p>
+                    <textarea id="system-prompt-input" placeholder="Enter custom system prompt..." rows="8"></textarea>
+                    <div class="modal-actions">
+                        <button id="reset-system-prompt-btn">Reset to Default</button>
+                        <button id="save-system-prompt-btn">Save</button>
+                    </div>
                 </div>
             </div>
         </div>

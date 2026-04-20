@@ -3,6 +3,7 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import ollama from 'ollama';
 import { OpenAI } from 'openai';
 import axios from 'axios';
@@ -19,6 +20,9 @@ const __dirname = path.dirname(__filename);
 // Create Express app
 const app = express();
 const server = http.createServer(app);
+
+// Parse JSON bodies for API requests
+app.use(express.json());
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -44,8 +48,20 @@ const config = {
   searchProvider: process.env.SEARCH_PROVIDER || 'duckduckgo', // 'duckduckgo', 'tavily', 'serpapi', etc.
   searchApiKey: process.env.SEARCH_API_KEY, // For APIs that require an API key
   enableMCP: process.env.ENABLE_MCP === 'true' || true, // Enable MCP integration by default
-  mcpConfigPath: process.env.MCP_CONFIG_PATH || './mcp-config.json' // Path to MCP config file
+  mcpConfigPath: process.env.MCP_CONFIG_PATH || './mcp-config.json', // Path to MCP config file
+  systemPromptPath: process.env.SYSTEM_PROMPT_PATH || './system-prompt-default.md', // Path to default system prompt
+  systemPrompt: null // Will be loaded from file
 };
+
+// Load default system prompt from file
+try {
+  if (fs.existsSync(config.systemPromptPath)) {
+    config.systemPrompt = fs.readFileSync(config.systemPromptPath, 'utf-8').trim();
+    console.log(`✅ Loaded default system prompt from ${config.systemPromptPath}`);
+  }
+} catch (error) {
+  console.error('⚠️  Failed to load system prompt file:', error.message);
+}
 
 let openaiClient = null;
 
@@ -236,10 +252,31 @@ wss.on('connection', (ws) => {
 
 // Function to handle chat messages
 async function handleChatMessage(ws, message) {
-  const { userMessage, chatHistory, sessionId } = message;
+  const { userMessage, chatHistory, sessionId, systemPrompt: customSystemPrompt } = message;
 
   // Add user message to chat history
   const updatedChatHistory = [...chatHistory, { role: 'user', content: userMessage }];
+
+  // Add system message with tool information if MCP is enabled
+  let currentMessages = updatedChatHistory;
+  if (config.enableMCP && mcpClientManager || customSystemPrompt || config.systemPrompt) {
+    const tools = mcpClientManager?.listTools() || [];
+    const toolDescriptions = tools.length > 0 ? tools.map(t => `- ${t.name}: ${t.description || 'No description'}`).join('\n') : '';
+    
+    // Get system prompt (custom override takes priority, then default from file)
+    let systemPromptContent = customSystemPrompt || config.systemPrompt || '';
+    
+    // Append tool information if MCP is enabled and tools are available
+    if (tools.length > 0) {
+      const toolInfo = `\n\nYou have access to the following tools that you can call when needed:\n\n${toolDescriptions}\n\nWhen you need to use a tool, respond with a JSON object containing tool_calls.`;
+      systemPromptContent = systemPromptContent ? systemPromptContent + toolInfo : toolInfo;
+    }
+    
+    if (systemPromptContent) {
+      const systemMessage = { role: 'system', content: systemPromptContent };
+      currentMessages = [systemMessage, ...updatedChatHistory];
+    }
+  }
 
   // Save user message to session if sessionId provided
   if (sessionManager && sessionId) {
@@ -265,7 +302,7 @@ async function handleChatMessage(ws, message) {
     let fullResponse = '';
 
     // Prepare messages for LLM with potential tool integration
-    let currentMessages = [...updatedChatHistory];
+    // currentMessages already includes system message with tools (set above)
 
     // Process with potential tool calling if MCP is enabled
     if (config.enableMCP && llmIntegration) {
@@ -1386,6 +1423,21 @@ app.get('/api/mcp/config', (req, res) => {
       message: 'MCP integration is disabled'
     });
   }
+});
+
+// Get default system prompt
+app.get('/api/system-prompt', (req, res) => {
+  res.json({
+    defaultPrompt: config.systemPrompt || '',
+    customPrompt: null
+  });
+});
+
+// Update system prompt (in-memory only, resets on restart)
+app.post('/api/system-prompt', (req, res) => {
+  const { systemPrompt } = req.body;
+  config.systemPrompt = systemPrompt || '';
+  res.json({ success: true, message: 'System prompt updated' });
 });
 
 // Start the server

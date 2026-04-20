@@ -18,6 +18,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
     const sidebar = document.getElementById('sidebar');
     const sessionStatsBtn = document.getElementById('session-stats-btn');
+    
+    // System prompt modal elements
+    const systemPromptBtn = document.getElementById('system-prompt-btn');
+    const systemPromptModal = document.getElementById('system-prompt-modal');
+    const systemPromptInput = document.getElementById('system-prompt-input');
+    const closeModalBtn = document.querySelector('.close-modal');
+    const saveSystemPromptBtn = document.getElementById('save-system-prompt-btn');
+    const resetSystemPromptBtn = document.getElementById('reset-system-prompt-btn');
+    
+    // Custom system prompt (override)
+    let customSystemPrompt = '';
 
     // WebSocket connection
     let ws;
@@ -572,7 +583,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         type: 'chat',
                         userMessage: message,
                         chatHistory: chatHistory,
-                        sessionId: currentSessionId
+                        sessionId: currentSessionId,
+                        systemPrompt: customSystemPrompt
                     }));
                 }, 100);
             } else {
@@ -581,7 +593,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     type: 'chat',
                     userMessage: message,
                     chatHistory: chatHistory,
-                    sessionId: currentSessionId
+                    sessionId: currentSessionId,
+                    systemPrompt: customSystemPrompt
                 }));
             }
         }
@@ -749,6 +762,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     clearHistoryBtn.addEventListener('click', () => {
         ws.send(JSON.stringify({ type: 'clear_history' }));
+    });
+    
+    // System prompt modal functionality
+    systemPromptBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch('/api/system-prompt');
+            const data = await response.json();
+            systemPromptInput.value = data.defaultPrompt || '';
+            customSystemPrompt = '';
+        } catch (error) {
+            console.error('Failed to load system prompt:', error);
+        }
+        systemPromptModal.style.display = 'block';
+    });
+    
+    // Close modal
+    closeModalBtn.addEventListener('click', () => {
+        systemPromptModal.style.display = 'none';
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (e) => {
+        if (e.target === systemPromptModal) {
+            systemPromptModal.style.display = 'none';
+        }
+    });
+    
+    // Reset to default
+    resetSystemPromptBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch('/api/system-prompt');
+            const data = await response.json();
+            systemPromptInput.value = data.defaultPrompt || '';
+            customSystemPrompt = '';
+            
+            // Clear custom prompt on server
+            await fetch('/api/system-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ systemPrompt: '' })
+            });
+        } catch (error) {
+            console.error('Failed to reset system prompt:', error);
+        }
+    });
+    
+    // Save custom system prompt
+    saveSystemPromptBtn.addEventListener('click', async () => {
+        customSystemPrompt = systemPromptInput.value;
+        try {
+            await fetch('/api/system-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ systemPrompt: customSystemPrompt })
+            });
+            systemPromptModal.style.display = 'none';
+        } catch (error) {
+            console.error('Failed to save system prompt:', error);
+        }
     });
 
     // New session button
