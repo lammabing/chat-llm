@@ -27,6 +27,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveSystemPromptBtn = document.getElementById('save-system-prompt-btn');
     const resetSystemPromptBtn = document.getElementById('reset-system-prompt-btn');
     
+    // MCP servers modal elements
+    const mcpServersBtn = document.getElementById('mcp-servers-btn');
+    const mcpServersModal = document.getElementById('mcp-servers-modal');
+    const mcpServersList = document.getElementById('mcp-servers-list');
+    const saveMcpServersBtn = document.getElementById('save-mcp-servers-btn');
+    
+    // Track enabled MCP servers
+    let enabledMcpServers = {};
+    
     // Custom system prompt (override)
     let customSystemPrompt = '';
 
@@ -821,6 +830,100 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Failed to save system prompt:', error);
         }
+    });
+    
+    // MCP servers modal functionality
+    mcpServersBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch('/api/mcp/config');
+            const data = await response.json();
+            
+            // Build the server list HTML
+            let html = '';
+            data.configuredServers.forEach(server => {
+                const isEnabled = data.enabled && data.connectedServers.includes(server);
+                const statusClass = isEnabled ? 'connected' : 'disconnected';
+                const statusText = isEnabled ? 'Enabled' : 'Disabled';
+                html += `
+                    <div class="mcp-server-item">
+                        <label>
+                            <input type="checkbox" data-server="${server}" ${isEnabled ? 'checked' : ''}>
+                            <span>${server}</span>
+                        </label>
+                        <span class="mcp-server-status ${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            });
+            mcpServersList.innerHTML = html;
+            
+            // Update enabledMcpServers tracking
+            data.configuredServers.forEach(server => {
+                const isConnected = data.connectedServers.includes(server);
+                enabledMcpServers[server] = isConnected;
+            });
+            
+            mcpServersModal.style.display = 'block';
+        } catch (error) {
+            console.error('Failed to load MCP servers:', error);
+        }
+    });
+    
+    // Toggle MCP server status display when checkbox changes
+    mcpServersList.addEventListener('change', (e) => {
+        if (e.target.type === 'checkbox') {
+            const server = e.target.dataset.server;
+            const statusSpan = e.target.closest('.mcp-server-item').querySelector('.mcp-server-status');
+            if (e.target.checked) {
+                statusSpan.textContent = 'Enabled';
+                statusSpan.className = 'mcp-server-status connected';
+            } else {
+                statusSpan.textContent = 'Disabled';
+                statusSpan.className = 'mcp-server-status disconnected';
+            }
+        }
+    });
+    
+    // Save MCP server settings
+    saveMcpServersBtn.addEventListener('click', async () => {
+        const checkboxes = mcpServersList.querySelectorAll('input[type="checkbox"]');
+        const serversToEnable = [];
+        const serversToDisable = [];
+        
+        checkboxes.forEach(cb => {
+            const server = cb.dataset.server;
+            if (cb.checked) {
+                serversToEnable.push(server);
+            } else {
+                serversToDisable.push(server);
+            }
+        });
+        
+        // Send via WebSocket
+        ws.send(JSON.stringify({
+            type: 'mcp_toggle_servers',
+            enable: serversToEnable,
+            disable: serversToDisable
+        }));
+        
+        mcpServersModal.style.display = 'none';
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (e) => {
+        if (e.target === systemPromptModal) {
+            systemPromptModal.style.display = 'none';
+        }
+        if (e.target === mcpServersModal) {
+            mcpServersModal.style.display = 'none';
+        }
+    });
+    
+    // Handle close modals with close button
+    document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', () => {
+            systemPromptModal.style.display = 'none';
+            mcpServersModal.style.display = 'none';
+        });
     });
 
     // New session button

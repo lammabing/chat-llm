@@ -229,6 +229,9 @@ wss.on('connection', (ws) => {
         case 'mcp_get_status':
           await handleMCPGetStatus(ws, message);
           break;
+        case 'mcp_toggle_servers':
+          await handleMCPToggleServers(ws, message);
+          break;
         default:
           ws.send(JSON.stringify({
             type: 'error',
@@ -1398,6 +1401,65 @@ async function handleMCPGetStatus(ws) {
     ws.send(JSON.stringify({
       type: 'error',
       message: `Failed to get MCP status: ${error.message}`
+    }));
+  }
+}
+
+async function handleMCPToggleServers(ws, message) {
+  if (!config.enableMCP || !mcpClientManager) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'MCP integration is disabled'
+    }));
+    return;
+  }
+
+  const { enable = [], disable = [] } = message;
+
+  try {
+    const results = { enabled: [], disabled: [], errors: [] };
+
+    // Disable servers that are in the disable list
+    for (const serverName of disable) {
+      try {
+        const connectedServers = mcpClientManager.getConnectedServers();
+        if (connectedServers.includes(serverName)) {
+          await mcpClientManager.disconnectFromServer(serverName);
+          results.disabled.push(serverName);
+        }
+      } catch (error) {
+        results.errors.push({ server: serverName, error: error.message });
+      }
+    }
+
+    // Enable servers that are in the enable list
+    for (const serverName of enable) {
+      try {
+        const connectedServers = mcpClientManager.getConnectedServers();
+        if (!connectedServers.includes(serverName)) {
+          await mcpClientManager.connectToServer(serverName);
+          results.enabled.push(serverName);
+        }
+      } catch (error) {
+        results.errors.push({ server: serverName, error: error.message });
+      }
+    }
+
+    // Send updated MCP status
+    ws.send(JSON.stringify({
+      type: 'mcp_toggle_result',
+      results,
+      configuredServers: mcpClientManager.getConfiguredServers(),
+      connectedServers: mcpClientManager.getConnectedServers(),
+      availableTools: mcpClientManager.listTools().length
+    }));
+
+    console.log(`MCP servers toggled - enabled: ${results.enabled.join(', ')}, disabled: ${results.disabled.join(', ')}`);
+  } catch (error) {
+    console.error('MCP toggle error:', error.message);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Failed to toggle MCP servers: ${error.message}`
     }));
   }
 }

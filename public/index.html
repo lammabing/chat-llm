@@ -37,6 +37,7 @@
         <div id="controls">
             <button id="clear-history-btn">Clear History</button>
             <button id="system-prompt-btn">System Prompt</button>
+            <button id="mcp-servers-btn">MCP Servers</button>
             <div class="dropdown-container">
                 <button id="provider-select-btn">Provider: ollama</button>
                 <div id="provider-dropdown" class="dropdown-content">
@@ -65,6 +66,25 @@
                     <div class="modal-actions">
                         <button id="reset-system-prompt-btn">Reset to Default</button>
                         <button id="save-system-prompt-btn">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MCP Servers Modal -->
+        <div id="mcp-servers-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Enable/Disable MCP Servers</h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p class="help-text">Toggle MCP servers on or off to save context tokens and memory.</p>
+                    <div id="mcp-servers-list">
+                        <!-- MCP servers will be populated dynamically -->
+                    </div>
+                    <div class="modal-actions">
+                        <button id="save-mcp-servers-btn">Save</button>
                     </div>
                 </div>
             </div>
