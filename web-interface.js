@@ -362,10 +362,20 @@ async function handleChatMessage(ws, message) {
       // Process potentially multiple turns if tools are involved
       let messagesForLLM = [...currentMessages];
       let hasToolCalls = false;
+      let toolIterations = 0;
+      const maxToolIterations = 5;
 
       // Loop to handle multiple turns if tools are called
       do {
         hasToolCalls = false;
+        
+        // Check iteration limit
+        if (toolIterations >= maxToolIterations) {
+          console.log(`Reached max tool iterations (${maxToolIterations}), stopping tool loop`);
+          break;
+        }
+        
+        toolIterations++;
 
         // Check if we should use tools with Ollama
         const tools = config.enableMCP ? mcpClientManager.getToolsForLLM() : [];
@@ -478,10 +488,20 @@ async function handleChatMessage(ws, message) {
       }));
 
       let hasToolCalls = false;
+      let oaiToolIterations = 0;
+      const oaiMaxToolIterations = 5;
 
       // Loop to handle multiple turns if tools are called
       do {
         hasToolCalls = false;
+        
+        // Check iteration limit
+        if (oaiToolIterations >= oaiMaxToolIterations) {
+          console.log(`Reached max tool iterations (${oaiMaxToolIterations}), stopping tool loop`);
+          break;
+        }
+        
+        oaiToolIterations++;
 
         // Prepare tools for OpenAI if MCP is enabled
         const tools = config.enableMCP ? mcpClientManager.getToolsForLLM() : [];
