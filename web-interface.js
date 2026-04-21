@@ -53,6 +53,20 @@ const config = {
   systemPrompt: null // Will be loaded from file
 };
 
+// Helper function to strip HTML/markdown for LLM consumption
+function stripHtmlForLLM(content) {
+  if (!content) return '';
+  return content
+    .replace(/<[^>]+>/g, '') // Remove HTML tags
+    .replace(/\$\$[^$]+\$\$/g, (match) => match.replace(/[\$]+/g, ' ')) // Remove math delimiters
+    .replace(/\$[^\$]+\$/g, (match) => match.replace(/[\$]+/g, ' '))
+    .replace(/\\\[/g, ' ')
+    .replace(/\\\]/g, ' ')
+    .replace(/\\\(/g, ' ')
+    .replace(/\\\)/g, ' ')
+    .trim();
+}
+
 // Load default system prompt from file
 try {
   if (fs.existsSync(config.systemPromptPath)) {
@@ -276,8 +290,13 @@ async function handleChatMessage(ws, message) {
     }
     
     if (systemPromptContent) {
+      // Strip HTML/markdown from chat history for clean LLM input
+      const cleanedHistory = updatedChatHistory.map(msg => ({
+        ...msg,
+        content: stripHtmlForLLM(msg.content)
+      }));
       const systemMessage = { role: 'system', content: systemPromptContent };
-      currentMessages = [systemMessage, ...updatedChatHistory];
+      currentMessages = [systemMessage, ...cleanedHistory];
     }
   }
 
