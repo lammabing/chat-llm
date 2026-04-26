@@ -58,8 +58,8 @@ function stripHtmlForLLM(content) {
   if (!content) return '';
   return content
     .replace(/<[^>]+>/g, '') // Remove HTML tags
-    .replace(/\$\$[^$]+\$\$/g, (match) => match.replace(/[\$]+/g, ' ')) // Remove math delimiters
-    .replace(/\$[^\$]+\$/g, (match) => match.replace(/[\$]+/g, ' '))
+    .replace(/\$\$[^$]*\$\$/g, (match) => match.replace(/[\$]+/g, ' ')) // Remove math delimiters (including empty $$...$$)
+    .replace(/\$[^\$]*\$/g, (match) => match.replace(/[\$]+/g, ' '))
     .replace(/\\\[/g, ' ')
     .replace(/\\\]/g, ' ')
     .replace(/\\\(/g, ' ')
