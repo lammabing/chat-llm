@@ -16,6 +16,7 @@
   "main": "interface.js",
   "type": "module",
   "scripts": {
+    "start": "node web-interface.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "multi-agent": "node multi-agent-chat.js",
     "chat": "node chat-interface.js",

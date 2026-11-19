@@ -39,6 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Custom system prompt (override)
     let customSystemPrompt = '';
 
+    // Provider list from server
+    let providersList = {};
+
     // WebSocket connection
     let ws;
     let chatHistory = [];
@@ -113,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
             gfm: true,
             headerIds: false,
             mangle: false,
-            sanitize: false,
             smartLists: true,
             smartypants: true,
             xhtml: false
@@ -143,6 +145,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'connected':
                     connectionStatus.textContent = 'Connected';
                     connectionStatus.style.color = 'green';
+                    if (data.providers) {
+                        providersList = data.providers;
+                        populateProviderDropdown(providersList);
+                    }
+                    break;
+
+                case 'providers_list':
+                    providersList = data.providers;
+                    populateProviderDropdown(providersList);
                     break;
                     
                 case 'response_start':
@@ -166,15 +177,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     chatHistory.push({ role: 'assistant', content: data.content });
                     break;
                     
-                case 'provider_switched':
-                    currentProviderSpan.textContent = data.provider;
+                case 'provider_switched': {
+                    const providerName = (providersList[data.provider] && providersList[data.provider].name) || data.provider;
+                    currentProviderSpan.textContent = providerName;
                     currentModelSpan.textContent = data.model;
-                    providerSelectBtn.textContent = `Provider: ${data.provider}`;
-                    connectionStatus.textContent = `Provider switched to ${data.provider}`;
+                    providerSelectBtn.textContent = `Provider: ${providerName}`;
+                    connectionStatus.textContent = `Provider switched to ${providerName}`;
                     if (data.endpoint) {
                         connectionStatus.textContent += ` (${data.endpoint})`;
                     }
                     break;
+                }
                     
                 case 'model_selected':
                     currentModelSpan.textContent = data.model;
@@ -221,6 +234,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateSessionInfo(data.session);
                     loadSessionsList(); // Refresh the list
                     connectionStatus.textContent = `New session created: ${data.session.title}`;
+                    // Send any pending message that was queued before session existed
+                    if (pendingSessionMessage) {
+                        ws.send(JSON.stringify({
+                            type: 'chat',
+                            userMessage: pendingSessionMessage.userMessage,
+                            chatHistory: pendingSessionMessage.chatHistory,
+                            sessionId: currentSessionId,
+                            systemPrompt: pendingSessionMessage.systemPrompt
+                        }));
+                        pendingSessionMessage = null;
+                    }
                     break;
 
                 case 'session_loaded':
@@ -400,6 +424,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Restore math delimiters after markdown processing
         html = restoreMathDelimiters(html);
 
+        // Sanitize HTML to prevent XSS attacks
+        if (typeof DOMPurify !== 'undefined') {
+            html = DOMPurify.sanitize(html, {
+                ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'del', 'ins',
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+                    'blockquote', 'pre', 'code', 'tt', 'kbd', 'samp', 'var',
+                    'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
+                    'a', 'img', 'hr', 'div', 'span', 'sub', 'sup',
+                    'svg', 'path'],
+                ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'width', 'height',
+                    'class', 'id', 'title', 'lang', 'style', 'data-*'],
+                ALLOW_DATA_ATTR: true
+            });
+        }
+
         return html;
     }
 
@@ -550,6 +589,18 @@ document.addEventListener('DOMContentLoaded', () => {
         chatHistory = [];
     }
     
+    // Populate provider dropdown from server-sent list
+    function populateProviderDropdown(providers) {
+        providerDropdown.innerHTML = '';
+        Object.keys(providers).forEach(id => {
+            const a = document.createElement('a');
+            a.href = '#';
+            a.dataset.provider = id;
+            a.textContent = providers[id].name || id;
+            providerDropdown.appendChild(a);
+        });
+    }
+
     // Populate model dropdown
     function populateModelDropdown(models) {
         modelDropdown.innerHTML = '';
@@ -567,6 +618,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Queue for pending messages waiting for session creation
+    let pendingSessionMessage = null;
+
     // Send message to server
     function sendMessage() {
         const message = messageInput.value.trim();
@@ -583,19 +637,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 query: query
             }));
         } else {
-            // If no session, create one automatically
+            // If no session, create one automatically and queue message
             if (!currentSessionId) {
                 createNewSession();
-                // Wait a moment for session to be created, then send message
-                setTimeout(() => {
-                    ws.send(JSON.stringify({
-                        type: 'chat',
-                        userMessage: message,
-                        chatHistory: chatHistory,
-                        sessionId: currentSessionId,
-                        systemPrompt: customSystemPrompt
-                    }));
-                }, 100);
+                pendingSessionMessage = {
+                    userMessage: message,
+                    chatHistory: chatHistory,
+                    systemPrompt: customSystemPrompt
+                };
             } else {
                 // Send regular chat message via WebSocket with session ID
                 ws.send(JSON.stringify({
@@ -953,14 +1002,15 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleDropdown(modelDropdown);
     });
     
-    // Provider selection
-    document.querySelectorAll('#provider-dropdown a').forEach(item => {
-        item.addEventListener('click', (e) => {
+    // Provider selection (event delegation, works with dynamically added items)
+    providerDropdown.addEventListener('click', (e) => {
+        const link = e.target.closest('a[data-provider]');
+        if (link) {
             e.preventDefault();
-            const provider = e.target.dataset.provider;
+            const provider = link.dataset.provider;
             switchProvider(provider);
             providerDropdown.classList.remove('show');
-        });
+        }
     });
     
     // Initial connection

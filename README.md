@@ -91,6 +91,10 @@ Create a `.env` file (optional):
 OPENAI_API_KEY=your-key-here
 OPENAI_BASE_URL=https://api.openai.com/v1
 
+# NanoGPT (openai-compatible)
+NANO-GPT_API_KEY=your-key-here
+NANO-GPT_BASE_URL=https://nano-gpt.com/api/v1
+
 # Search API (optional)
 SEARCH_PROVIDER=duckduckgo
 SEARCH_API_KEY=your-key-here

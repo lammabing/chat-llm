@@ -1,0 +1,27 @@
+{
+  "ollama": {
+    "name": "Ollama",
+    "type": "ollama"
+  },
+  "openai": {
+    "name": "OpenAI",
+    "type": "openai-compatible",
+    "apiKeyEnv": "OPENAI_API_KEY",
+    "baseUrlEnv": "OPENAI_BASE_URL",
+    "defaultBaseUrl": "https://api.openai.com/v1"
+  },
+  "nvidia": {
+    "name": "NVIDIA",
+    "type": "openai-compatible",
+    "apiKeyEnv": "NVIDIA_API_KEY",
+    "baseUrlEnv": "NVIDIA_BASE_URL",
+    "defaultBaseUrl": "https://integrate.api.nvidia.com/v1"
+  },
+  "nano-gpt": {
+    "name": "NanoGPT",
+    "type": "openai-compatible",
+    "apiKeyEnv": "NANO-GPT_API_KEY",
+    "baseUrlEnv": "NANO-GPT_BASE_URL",
+    "defaultBaseUrl": "https://nano-gpt.com/api/v1"
+  }
+}
